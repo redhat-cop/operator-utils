@@ -9,8 +9,8 @@ func IsBeingDeleted(obj *metav1.Object) bool {
 	return !(*obj).GetDeletionTimestamp().IsZero()
 }
 
-// HasFinalizaer returns whether this object has the passed finalizer
-func HasFinalizaer(obj *metav1.Object, finalizer string) bool {
+// HasFinalizer returns whether this object has the passed finalizer
+func HasFinalizer(obj *metav1.Object, finalizer string) bool {
 	for _, fin := range (*obj).GetFinalizers() {
 		if fin == finalizer {
 			return true
@@ -19,9 +19,9 @@ func HasFinalizaer(obj *metav1.Object, finalizer string) bool {
 	return false
 }
 
-// AddFinalizaer adds the passed finalizer this object
-func AddFinalizaer(obj *metav1.Object, finalizer string) {
-	if !HasFinalizaer(obj, finalizer) {
+// AddFinalizer adds the passed finalizer this object
+func AddFinalizer(obj *metav1.Object, finalizer string) {
+	if !HasFinalizer(obj, finalizer) {
 		(*obj).SetFinalizers(append((*obj).GetFinalizers(), finalizer))
 	}
 }
