@@ -39,6 +39,10 @@ spec:
               type: boolean
             valid:
               type: boolean
+          required:
+          - initialized
+          - valid
+          - error
           type: object
         status:
           properties:

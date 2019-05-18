@@ -88,6 +88,7 @@ func schema_pkg_apis_example_v1alpha1_MyCRDSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				Required: []string{"initialized", "valid", "error"},
 			},
 		},
 		Dependencies: []string{},

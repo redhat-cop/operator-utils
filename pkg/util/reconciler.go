@@ -8,6 +8,8 @@ import (
 	"text/template"
 	"time"
 
+	apis "github.com/redhat-cop/operator-utils/pkg/util/apis"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -293,15 +295,18 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 	}
 	var retryInterval time.Duration
 	r.GetRecorder().Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
-	if reconcileStatusAware, updateStatus := (obj).(ReconcileStatusAware); updateStatus {
+	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
 		lastUpdate := reconcileStatusAware.GetReconcileStatus().LastUpdate.Time
 		lastStatus := reconcileStatusAware.GetReconcileStatus().Status
-		status := ReconcileStatus{
+		status := apis.ReconcileStatus{
 			LastUpdate: metav1.Now(),
 			Reason:     issue.Error(),
 			Status:     "Failure",
 		}
 		reconcileStatusAware.SetReconcileStatus(status)
+		log.Info("reconcile status", "status", status)
+		log.Info("reconsileStatus aware", "reconcileStatusAware", reconcileStatusAware)
+		log.Info("runtimeObj", "runtimeObj", runtimeObj)
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
@@ -331,13 +336,16 @@ func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, err
 		log.Error(errors.New("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
 		return reconcile.Result{}, nil
 	}
-	if reconcileStatusAware, updateStatus := (obj).(ReconcileStatusAware); updateStatus {
-		status := ReconcileStatus{
+	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
+		status := apis.ReconcileStatus{
 			LastUpdate: metav1.Now(),
 			Reason:     "",
 			Status:     "Success",
 		}
 		reconcileStatusAware.SetReconcileStatus(status)
+		log.Info("reconcile status", "status", status)
+		log.Info("reconsileStatus aware", "reconcileStatusAware", reconcileStatusAware)
+		log.Info("runtimeObj", "runtimeObj", runtimeObj)
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")

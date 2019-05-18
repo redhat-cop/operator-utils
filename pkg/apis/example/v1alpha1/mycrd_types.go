@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"github.com/redhat-cop/operator-utils/pkg/util"
+	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -14,9 +14,9 @@ type MyCRDSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	Initialized bool `json:"initialized,omitempty"`
-	Valid       bool `json:"valid,omitempty"`
-	Error       bool `json:"error,omitempty"`
+	Initialized bool `json:"initialized"`
+	Valid       bool `json:"valid"`
+	Error       bool `json:"error"`
 }
 
 // MyCRDStatus defines the observed state of MyCRD
@@ -26,14 +26,24 @@ type MyCRDStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	util.ReconcileStatus `json:",inline"`
+	apis.ReconcileStatus `json:",inline"`
 }
 
-func (m MyCRD) GetReconcileStatus() util.ReconcileStatus {
+/* // ReconcileStatus represent the status of the last reconcile cycle. It's used to communicate success or failer and the error message
+// +k8s:openapi-gen=true
+type ReconcileStatus struct {
+
+	// +kubebuilder:validation:Enum=Success,Failure
+	Status     string      `json:"status,omitempty"`
+	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
+	Reason     string      `json:"reason,omitempty"`
+} */
+
+func (m MyCRD) GetReconcileStatus() apis.ReconcileStatus {
 	return m.Status.ReconcileStatus
 }
 
-func (m MyCRD) SetReconcileStatus(reconcileStatus util.ReconcileStatus) {
+func (m MyCRD) SetReconcileStatus(reconcileStatus apis.ReconcileStatus) {
 	m.Status.ReconcileStatus = reconcileStatus
 }
 
