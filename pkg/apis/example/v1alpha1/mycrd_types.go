@@ -39,11 +39,11 @@ type ReconcileStatus struct {
 	Reason     string      `json:"reason,omitempty"`
 } */
 
-func (m MyCRD) GetReconcileStatus() apis.ReconcileStatus {
+func (m *MyCRD) GetReconcileStatus() apis.ReconcileStatus {
 	return m.Status.ReconcileStatus
 }
 
-func (m MyCRD) SetReconcileStatus(reconcileStatus apis.ReconcileStatus) {
+func (m *MyCRD) SetReconcileStatus(reconcileStatus apis.ReconcileStatus) {
 	m.Status.ReconcileStatus = reconcileStatus
 }
 
