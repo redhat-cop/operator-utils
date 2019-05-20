@@ -56,9 +56,9 @@ At this point your controller is able to reuse leverage the utility methods of t
 3. [managing status and error conditions](#managing-status-and-error-conditions)
 4. [managing CR finalization](#managing-cr-finalization)
 5. high-level object manipulation functions such as:
-  a. createOrUpdate, createIfNotExists, DeleteIfExists
-  b. same functions on an array of objects
-  c. go template processing of objects
+   - createOrUpdate, createIfNotExists, DeleteIfExists
+   - same functions on an array of objects
+   - go template processing of objects
 
 A full example is provided [here](./pkg/controller/mycrd/mycrd_controller.go)
 
