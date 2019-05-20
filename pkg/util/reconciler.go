@@ -304,9 +304,6 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 			Status:     "Failure",
 		}
 		reconcileStatusAware.SetReconcileStatus(status)
-		log.Info("reconcile status", "status", status)
-		log.Info("reconsileStatus aware", "reconcileStatusAware", reconcileStatusAware)
-		log.Info("runtimeObj", "runtimeObj", runtimeObj)
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
