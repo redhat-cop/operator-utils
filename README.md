@@ -1,8 +1,8 @@
 # Operator Utility Library
 
-This labrary layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
+This library layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
 
-To get started with this library do the following
+To get started with this library do the following:
 
 Change your reconciler initialization as exemplified below to add a set of utility methods to it
 
@@ -57,10 +57,10 @@ At this point your controller is able to reuse leverage the utility methods of t
 4. [managing CR finalization](#managing-cr-finalization)
 5. high-level object manipulation functions such as:
   a. createOrUpdate, createIfNotExists, DeleteIfExists
-	b. same functions on an array of objects
-	c. go template processing of objects
+  b. same functions on an array of objects
+  c. go template processing of objects
 
-A full example if provided [here](./pkg/controller/mycrd/mycrd_controller.go)
+A full example is provided [here](./pkg/controller/mycrd/mycrd_controller.go)
 
 ## Managing CR validation
 
