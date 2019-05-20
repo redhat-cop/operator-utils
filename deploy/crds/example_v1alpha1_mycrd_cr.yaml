@@ -1,0 +1,7 @@
+apiVersion: example.io/v1alpha1
+kind: MyCRD
+metadata:
+  name: example-mycrd
+spec:
+  # Add fields here
+  size: 3
