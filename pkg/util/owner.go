@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func isOwner(owner, owned metav1.Object) bool {
+func IsOwner(owner, owned metav1.Object) bool {
 	runtimeObj, ok := (owner).(runtime.Object)
 	if !ok {
 		return false
