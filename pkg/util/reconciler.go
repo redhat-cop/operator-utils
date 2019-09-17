@@ -90,6 +90,11 @@ func (r *ReconcilerBase) GetClient() client.Client {
 	return r.client
 }
 
+//GetRestConfig returns the undelying rest config
+func (r *ReconcilerBase) GetRestConfig() *rest.Config {
+	return r.restConfig
+}
+
 // GetRecorder returns the underlying recorder
 func (r *ReconcilerBase) GetRecorder() record.EventRecorder {
 	return r.recorder
