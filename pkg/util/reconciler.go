@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"text/template"
 	"time"
 
@@ -115,28 +116,52 @@ func (r *ReconcilerBase) GetDynamicClientOnAPIResource(resource metav1.APIResour
 	return r.getDynamicClientOnGVR(schema.GroupVersionResource{
 		Group:    resource.Group,
 		Version:  resource.Version,
-		Resource: resource.Kind,
+		Resource: resource.Name,
 	})
 }
 
-func (r *ReconcilerBase) getDynamicClientOnGVR(gkv schema.GroupVersionResource) (dynamic.NamespaceableResourceInterface, error) {
-	intf, err := dynamic.NewForConfig(r.restConfig)
+func (r *ReconcilerBase) getDynamicClientOnGVR(gvr schema.GroupVersionResource) (dynamic.NamespaceableResourceInterface, error) {
+	intf, err := dynamic.NewForConfig(r.GetRestConfig())
 	if err != nil {
 		log.Error(err, "unable to get dynamic client")
 		return nil, err
 	}
-	res := intf.Resource(gkv)
+	res := intf.Resource(gvr)
 	return res, nil
 }
 
 // GetDynamicClientOnUnstructured returns a dynamic client on an Unstructured type. This client can be further namespaced.
 func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.NamespaceableResourceInterface, error) {
+	apiRes, err := r.getAPIReourceForUnstructured(obj)
+	if err != nil {
+		log.Error(err, "unable to get apiresource from unstructured", "unstructured", obj)
+		return nil, err
+	}
+	return r.GetDynamicClientOnAPIResource(apiRes)
+}
+
+func (r *ReconcilerBase) getAPIReourceForUnstructured(obj unstructured.Unstructured) (metav1.APIResource, error) {
 	gvk := obj.GetObjectKind().GroupVersionKind()
-	return r.getDynamicClientOnGVR(schema.GroupVersionResource{
-		Group:    gvk.Group,
-		Version:  gvk.Version,
-		Resource: gvk.Kind,
-	})
+	res := metav1.APIResource{}
+	discoveryClient, err := r.GetDiscoveryClient()
+	if err != nil {
+		log.Error(err, "unable to create discovery client")
+		return res, err
+	}
+	resList, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
+	if err != nil {
+		log.Error(err, "unable to retrieve resouce list for:", "groupversion", gvk.GroupVersion().String())
+		return res, err
+	}
+	for _, resource := range resList.APIResources {
+		if resource.Kind == gvk.Kind && !strings.Contains(resource.Name, "/") {
+			res = resource
+			res.Group = gvk.Group
+			res.Version = gvk.Version
+			break
+		}
+	}
+	return res, nil
 }
 
 // CreateOrUpdateResource creates a resource if it doesn't exist, and updates (overwrites it), if it exist
