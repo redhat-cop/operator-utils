@@ -231,7 +231,7 @@ func (r *ReconcilerBase) DeleteResource(obj metav1.Object) error {
 		return fmt.Errorf("is not a %T a runtime.Object", obj)
 	}
 
-	err := r.GetClient().Delete(context.TODO(), runtimeObj, nil)
+	err := r.GetClient().Delete(context.TODO(), runtimeObj)
 	if err != nil && !apierrors.IsNotFound(err) {
 		log.Error(err, "unable to delete object ", "object", runtimeObj)
 		return err
