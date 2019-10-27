@@ -14,12 +14,12 @@
 
 FROM registry.access.redhat.com/ubi7/ubi-minimal:latest
 
-ENV OPERATOR=/usr/local/bin/myoperator \
+ENV OPERATOR=/usr/local/bin/operator-utils \
     USER_UID=1001 \
-    USER_NAME=myoperator
+    USER_NAME=operator-utils
 
 # install operator binary
-COPY build/_output/bin/myoperator ${OPERATOR}
+COPY build/_output/bin/operator-utils ${OPERATOR}
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
