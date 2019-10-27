@@ -1,5 +1,7 @@
 # Operator Utility Library
 
+[![Build Status](https://travis-ci.org/redhat-cop/operator-utils.svg?branch=master)](https://travis-ci.org/redhat-cop/operator-utils) [![Docker Repository on Quay](https://quay.io/repository/redhat-cop/operator-utils/status "Docker Repository on Quay")](https://quay.io/repository/redhat-cop/operator-utils)
+
 This library layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
 
 To get started with this library do the following:
@@ -18,9 +20,9 @@ type MyReconciler struct {
 ...
 
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileMyCRD{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetRecorder(controllerName)),
-	}
+ return &ReconcileMyCRD{
+  ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetRecorder(controllerName)),
+ }
 }
 ```
 
@@ -34,17 +36,17 @@ import "github.com/redhat-cop/operator-utils/pkg/util/apis"
 
 // +k8s:openapi-gen=true
 type MyCRDStatus struct {
-	apis.ReconcileStatus `json:",inline"`
+ apis.ReconcileStatus `json:",inline"`
 }
 
 ...
 
 func (m *MyCRD) GetReconcileStatus() apis.ReconcileStatus {
-	return m.Status.ReconcileStatus
+ return m.Status.ReconcileStatus
 }
 
 func (m *MyCRD) SetReconcileStatus(reconcileStatus apis.ReconcileStatus) {
-	m.Status.ReconcileStatus = reconcileStatus
+ m.Status.ReconcileStatus = reconcileStatus
 }
 
 ```
@@ -68,7 +70,7 @@ To enable CR validation add this to your controller:
 
 ```go
 if ok, err := r.IsValid(instance); !ok {
-	return r.ManageError(instance, err)
+ return r.ManageError(instance, err)
 }
 ```
 
@@ -76,8 +78,8 @@ The implement the following function:
 
 ```go
 func (r *ReconcileMyCRD) IsValid(obj metav1.Object) (bool, error) {
-	mycrd, ok := obj.(*examplev1alpha1.MyCRD)
-	...
+ mycrd, ok := obj.(*examplev1alpha1.MyCRD)
+ ...
 }
 ```
 
@@ -87,12 +89,12 @@ To enable CR initialization, add this to your controller:
 
 ```go
 if ok := r.IsInitialized(instance); !ok {
-	err := r.GetClient().Update(context.TODO(), instance)
-	if err != nil {
-		log.Error(err, "unable to update instance", "instance", instance)
-		return r.ManageError(instance, err)
-	}
-	return reconcile.Result{}, nil
+ err := r.GetClient().Update(context.TODO(), instance)
+ if err != nil {
+  log.Error(err, "unable to update instance", "instance", instance)
+  return r.ManageError(instance, err)
+ }
+ return reconcile.Result{}, nil
 }
 ```
 
@@ -100,7 +102,7 @@ Then implement the following function:
 
 ```go
 func (r *ReconcileMyCRD) IsInitialized(obj metav1.Object) bool {
-	mycrd, ok := obj.(*examplev1alpha1.MyCRD)
+ mycrd, ok := obj.(*examplev1alpha1.MyCRD)
 }
 ```
 
@@ -126,21 +128,21 @@ to enable CR finalization add this to your controller:
 
 ```go
 if util.IsBeingDeleted(instance) {
-	if !util.HasFinalizer(instance, controllerName) {
-		return reconcile.Result{}, nil
-	}
-	err := r.manageCleanUpLogic(instance)
-	if err != nil {
-		log.Error(err, "unable to delete instance", "instance", instance)
-		return r.ManageError(instance, err)
-	}
-	util.RemoveFinalizer(instance, controllerName)
-	err = r.GetClient().Update(context.TODO(), instance)
-	if err != nil {
-		log.Error(err, "unable to update instance", "instance", instance)
-		return r.ManageError(instance, err)
-	}
-	return reconcile.Result{}, nil
+ if !util.HasFinalizer(instance, controllerName) {
+  return reconcile.Result{}, nil
+ }
+ err := r.manageCleanUpLogic(instance)
+ if err != nil {
+  log.Error(err, "unable to delete instance", "instance", instance)
+  return r.ManageError(instance, err)
+ }
+ util.RemoveFinalizer(instance, controllerName)
+ err = r.GetClient().Update(context.TODO(), instance)
+ if err != nil {
+  log.Error(err, "unable to update instance", "instance", instance)
+  return r.ManageError(instance, err)
+ }
+ return reconcile.Result{}, nil
 }
 ```
 

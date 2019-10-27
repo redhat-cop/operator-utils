@@ -106,4 +106,4 @@ travis-latest-deploy: docker-login docker-build docker-push-latest
 travis-dev-deploy: docker-login docker-build docker-push-dev
 
 # Travis Release
-travis-release-deploy: docker-login docker-build docker-push-release publish-chart-repo
+travis-release-deploy: docker-login docker-build docker-push-release #publish-chart-repo
