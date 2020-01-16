@@ -24,7 +24,7 @@ import (
 // +k8s:openapi-gen=true
 type ReconcileStatus struct {
 
-	// +kubebuilder:validation:Enum=Success,Failure
+	// +kubebuilder:validation:Enum=Success;Failure
 	Status     string      `json:"status,omitempty"`
 	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
 	Reason     string      `json:"reason,omitempty"`
