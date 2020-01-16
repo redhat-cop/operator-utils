@@ -1,7 +1,6 @@
 module github.com/redhat-cop/operator-utils
 
 require (
-	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-openapi/spec v0.19.0
 	github.com/grantae/certinfo v0.0.0-20170412194111-59d56a35515b
@@ -40,3 +39,5 @@ replace (
 replace github.com/operator-framework/operator-sdk => github.com/operator-framework/operator-sdk v0.10.0
 
 replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
+
+go 1.13
