@@ -20,10 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"text/template"
-	"time"
 
 	apis "github.com/redhat-cop/operator-utils/pkg/util/apis"
 
@@ -379,14 +377,12 @@ func (r *ReconcilerBase) DeleteTemplatedResources(data interface{}, template *te
 func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.Result, error) {
 	runtimeObj, ok := (obj).(runtime.Object)
 	if !ok {
-		log.Error(errors.New("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
-		return reconcile.Result{}, nil
+		err := errors.New("not a runtime.Object")
+		log.Error(err, "passed object was not a runtime.Object", "object", obj)
+		return reconcile.Result{}, err
 	}
-	var retryInterval time.Duration
 	r.GetRecorder().Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
 	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
-		lastUpdate := reconcileStatusAware.GetReconcileStatus().LastUpdate.Time
-		lastStatus := reconcileStatusAware.GetReconcileStatus().Status
 		status := apis.ReconcileStatus{
 			LastUpdate: metav1.Now(),
 			Reason:     issue.Error(),
@@ -396,32 +392,21 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
-			return reconcile.Result{
-				RequeueAfter: time.Second,
-				Requeue:      true,
-			}, nil
-		}
-		if lastUpdate.IsZero() || lastStatus == "Success" {
-			retryInterval = time.Second
-		} else {
-			retryInterval = status.LastUpdate.Sub(lastUpdate).Round(time.Second)
+			return reconcile.Result{}, err
 		}
 	} else {
 		log.Info("object is not RecocileStatusAware, not setting status")
-		retryInterval = time.Second
 	}
-	return reconcile.Result{
-		RequeueAfter: time.Duration(math.Min(float64(retryInterval.Nanoseconds()*2), float64(time.Hour.Nanoseconds()*6))),
-		Requeue:      true,
-	}, nil
+	return reconcile.Result{}, issue
 }
 
 // ManageSuccess will update the status of the CR and return a successful reconcile result
 func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, error) {
 	runtimeObj, ok := (obj).(runtime.Object)
 	if !ok {
-		log.Error(errors.New("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
-		return reconcile.Result{}, nil
+		err := errors.New("not a runtime.Object")
+		log.Error(err, "passed object was not a runtime.Object", "object", obj)
+		return reconcile.Result{}, err
 	}
 	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
 		status := apis.ReconcileStatus{
@@ -433,10 +418,7 @@ func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, err
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
-			return reconcile.Result{
-				RequeueAfter: time.Second,
-				Requeue:      true,
-			}, nil
+			return reconcile.Result{}, err
 		}
 	} else {
 		log.Info("object is not RecocileStatusAware, not setting status")
