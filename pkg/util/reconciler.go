@@ -73,10 +73,12 @@ func NewReconcilerBase(client client.Client, scheme *runtime.Scheme, restConfig 
 	}
 }
 
+//IsValid determines if a CR instance is valid. this implementation returns always true, should be overridden
 func (r *ReconcilerBase) IsValid(obj metav1.Object) (bool, error) {
 	return true, nil
 }
 
+//IsInitialized determines if a CR instance is initialized. this implementation returns always true, should be overridden
 func (r *ReconcilerBase) IsInitialized(obj metav1.Object) bool {
 	return true
 }
@@ -131,13 +133,21 @@ func (r *ReconcilerBase) getDynamicClientOnGVR(gvr schema.GroupVersionResource) 
 }
 
 // GetDynamicClientOnUnstructured returns a dynamic client on an Unstructured type. This client can be further namespaced.
-func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.NamespaceableResourceInterface, error) {
+func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.ResourceInterface, error) {
 	apiRes, err := r.getAPIReourceForUnstructured(obj)
 	if err != nil {
 		log.Error(err, "unable to get apiresource from unstructured", "unstructured", obj)
 		return nil, err
 	}
-	return r.GetDynamicClientOnAPIResource(apiRes)
+	dc, err := r.GetDynamicClientOnAPIResource(apiRes)
+	if err != nil {
+		log.Error(err, "unable to get namespaceable dynamic client from ", "resource", apiRes)
+		return nil, err
+	}
+	if apiRes.Namespaced {
+		return dc.Namespace(obj.GetNamespace()), nil
+	}
+	return dc, nil
 }
 
 func (r *ReconcilerBase) getAPIReourceForUnstructured(obj unstructured.Unstructured) (metav1.APIResource, error) {
@@ -224,6 +234,17 @@ func (r *ReconcilerBase) CreateOrUpdateResources(owner metav1.Object, namespace 
 	return nil
 }
 
+// CreateOrUpdateUnstructuredResources operates as CreateOrUpdate, but on an array of unstructured.Unstructured
+func (r *ReconcilerBase) CreateOrUpdateUnstructuredResources(owner metav1.Object, namespace string, objs []unstructured.Unstructured) error {
+	for _, obj := range objs {
+		err := r.CreateOrUpdateResource(owner, namespace, &obj)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // DeleteResource deletes an existing resource. It doesn't fail if the resource does not exist
 func (r *ReconcilerBase) DeleteResource(obj metav1.Object) error {
 	runtimeObj, ok := (obj).(runtime.Object)
@@ -243,6 +264,17 @@ func (r *ReconcilerBase) DeleteResource(obj metav1.Object) error {
 func (r *ReconcilerBase) DeleteResources(objs []metav1.Object) error {
 	for _, obj := range objs {
 		err := r.DeleteResource(obj)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteUnstructuredResources operates like DeleteResources, but on an arrays of unstructured.Unstructured
+func (r *ReconcilerBase) DeleteUnstructuredResources(objs []unstructured.Unstructured) error {
+	for _, obj := range objs {
+		err := r.DeleteResource(&obj)
 		if err != nil {
 			return err
 		}
@@ -278,6 +310,17 @@ func (r *ReconcilerBase) CreateResourceIfNotExists(owner metav1.Object, namespac
 func (r *ReconcilerBase) CreateResourcesIfNotExist(owner metav1.Object, namespace string, objs []metav1.Object) error {
 	for _, obj := range objs {
 		err := r.CreateResourceIfNotExists(owner, namespace, obj)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CreateUnstructuredResourcesIfNotExist operates as CreateResourceIfNotExists, but on an array of unstructured.Unstructured
+func (r *ReconcilerBase) CreateUnstructuredResourcesIfNotExist(owner metav1.Object, namespace string, objs []unstructured.Unstructured) error {
+	for _, obj := range objs {
+		err := r.CreateResourceIfNotExists(owner, namespace, &obj)
 		if err != nil {
 			return err
 		}
@@ -373,6 +416,7 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 	}, nil
 }
 
+// ManageSuccess will update the status of the CR and return a successful reconcile result
 func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, error) {
 	runtimeObj, ok := (obj).(runtime.Object)
 	if !ok {

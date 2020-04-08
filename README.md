@@ -154,6 +154,69 @@ func (r *ReconcileMyCRD) manageCleanUpLogic(mycrd *examplev1alpha1.MyCRD) error 
 }
 ```
 
+## Enforcing Operators
+
+Many operator have the following logic:
+
+1. Phase 1: based on the CR and potentially additional status as set of resources that need to exist is calculated.
+2. Phase 2: These resources are then created or updated against the master API.
+3. Phase 3: A well written also ensures that these resources stay in place and are not accidentally or maliciously changed by third parties.
+
+These phases are of increasing difficulty to implement. It's also true that phase 2 and 3 can be generalized.
+
+Operator-utils offers some scaffolding to writing these kinds of operators.
+
+Similarly to the `BaseReconciler` class, we have a base type to extend called: `EnforcingReconciler`. This class extends from `BaseReconciler`, so you have all the same facilities as above.
+
+The body of the reconciler function will look something like this:
+
+```golang
+validation...
+initialization...
+(optional) finalization...
+Phase1 ... calculate a set of resources to be enforced -> LockedResources
+
+	err = r.UpdateLockedResources(instance, lockedResources)
+	if err != nil {
+		log.Error(err, "unable to update locked resources")
+		return r.ManageError(instance, err)
+	}
+
+  return r.ManageSuccess(instance)
+```
+
+this is all you have to do for basic functionality. For mode details see the [example](pkg/controller/apis/enforcingcrd/enforcingcrd_controller.go)
+
+## Local Development
+
+Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
+
+```shell
+go mod download
+```
+
+optionally:
+
+```shell
+go mod vendor
+```
+
+Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), run the operator locally:
+
+```shell
+oc apply -f deploy/crds
+OPERATOR_NAME='example-operator' operator-sdk --verbose up local --namespace ""
+```
+
+## Testing
+
+### Enforcing CRD testing
+
+```shell
+oc new-project test-enforcingcrd
+oc apply -f test/enforcing_cr.yaml -n test-enforcingcrd
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).

@@ -14,20 +14,22 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
+      description: MyCRD is the Schema for the mycrds API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
             of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
           type: string
         kind:
           description: 'Kind is a string value representing the REST resource this
             object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
           type: object
         spec:
+          description: MyCRDSpec defines the desired state of MyCRD
           properties:
             error:
               type: boolean
@@ -40,23 +42,29 @@ spec:
             valid:
               type: boolean
           required:
+          - error
           - initialized
           - valid
-          - error
           type: object
         status:
+          description: MyCRDStatus defines the observed state of MyCRD
           properties:
             lastUpdate:
+              description: LastUpdate this is the time of the last when the status
+                was last updated
               format: date-time
               type: string
             reason:
+              description: Reason a custom message describing the status or the error
               type: string
             status:
+              description: Status can be "Success" or "Failure"
               enum:
               - Success
               - Failure
               type: string
           type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1

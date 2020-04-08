@@ -1,0 +1,115 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: enforcingcrds.example.io
+spec:
+  group: example.io
+  names:
+    kind: EnforcingCRD
+    listKind: EnforcingCRDList
+    plural: enforcingcrds
+    singular: enforcingcrd
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: EnforcingCRD is the Schema for the enforcingcrds API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: EnforcingCRDSpec defines the desired state of EnforcingCRD
+          properties:
+            resources:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+                Resources is a list of resource manifests that should be locked into
+                the specified configuration'
+              items:
+                description: Resource represents a resource to be enforced in a LockedResourceController
+                  and can be used in a API specification
+                properties:
+                  excludedPaths:
+                    description: ExludedPaths are a set of json paths that need not
+                      be considered by the LockedResourceReconciler
+                    items:
+                      type: string
+                    type: array
+                  object:
+                    description: Object is a yaml representation of an API resource
+                    type: object
+                required:
+                - object
+                type: object
+              type: array
+          type: object
+        status:
+          description: EnforcingCRDStatus defines the observed state of EnforcingCRD
+          properties:
+            inline:
+              description: ReconcileStatus this is the general status of the main
+                reconciler
+              properties:
+                lastUpdate:
+                  description: LastUpdate this is the time of the last when the status
+                    was last updated
+                  format: date-time
+                  type: string
+                reason:
+                  description: Reason a custom message describing the status or the
+                    error
+                  type: string
+                status:
+                  description: Status can be "Success" or "Failure"
+                  enum:
+                  - Success
+                  - Failure
+                  type: string
+              type: object
+            lockedResourceStatuses:
+              additionalProperties:
+                description: ReconcileStatus represent the status of the last reconcile
+                  cycle. It's used to communicate success or failer and the error
+                  message
+                properties:
+                  lastUpdate:
+                    description: LastUpdate this is the time of the last when the
+                      status was last updated
+                    format: date-time
+                    type: string
+                  reason:
+                    description: Reason a custom message describing the status or
+                      the error
+                    type: string
+                  status:
+                    description: Status can be "Success" or "Failure"
+                    enum:
+                    - Success
+                    - Failure
+                    type: string
+                type: object
+              description: LockedResourceStatuses containes the reconcile status for
+                each of the managed resoureces
+              type: object
+          required:
+          - inline
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
