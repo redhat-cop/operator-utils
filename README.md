@@ -4,6 +4,26 @@
 
 This library layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
 
+## Scope of this library
+
+This library covers three main areas:
+
+1. [Idempotent methods](#Idempotent-Methods-to-Manipulate-Resources) to manipulate resources and array of resources
+2. [Basic operator lifecycle](#Basic-Operator-Lifecycle-Management) needs (validation, initialization, status and error management, finalization)
+3. [Enforcing resources operator support](#Enforcing-Resource-Operator-Support). For those operators which calculate a set of resources that need to exist and then enforce them, generalized support for the enforcing phase is provided.
+
+## Idempotent Methods to Manipulate Resources
+
+The following idempotent methods are provided (and their corresponding array version):
+
+1. createIfNotExists
+2. createOrUpdate
+3. deleteIfExits
+
+Also there are utility methods to manage finalizers, test ownership and process templates of resources.
+
+## Basic Operator Lifecycle Management
+
 To get started with this library do the following:
 
 Change your reconciler initialization as exemplified below to add a set of utility methods to it
@@ -64,7 +84,7 @@ At this point your controller is able to reuse leverage the utility methods of t
 
 A full example is provided [here](./pkg/controller/mycrd/mycrd_controller.go)
 
-## Managing CR validation
+### Managing CR validation
 
 To enable CR validation add this to your controller:
 
@@ -83,7 +103,7 @@ func (r *ReconcileMyCRD) IsValid(obj metav1.Object) (bool, error) {
 }
 ```
 
-## Managing CR Initialization
+### Managing CR Initialization
 
 To enable CR initialization, add this to your controller:
 
@@ -106,7 +126,7 @@ func (r *ReconcileMyCRD) IsInitialized(obj metav1.Object) bool {
 }
 ```
 
-## Managing Status and Error Conditions
+### Managing Status and Error Conditions
 
 To update the status with success and return from the reconciliation cycle, code the following:
 
@@ -122,7 +142,7 @@ return r.ManageError(instance, err)
 
 notice that this function will reschedule a reconciliation cycle with increasingly longer wait time up to six hours.
 
-## Managing CR Finalization
+### Managing CR Finalization
 
 to enable CR finalization add this to your controller:
 
@@ -154,7 +174,7 @@ func (r *ReconcileMyCRD) manageCleanUpLogic(mycrd *examplev1alpha1.MyCRD) error 
 }
 ```
 
-## Enforcing Operators
+## Enforcing Resource Operator Support
 
 Many operator have the following logic:
 
@@ -186,6 +206,27 @@ Phase1 ... calculate a set of resources to be enforced -> LockedResources
 ```
 
 this is all you have to do for basic functionality. For mode details see the [example](pkg/controller/apis/enforcingcrd/enforcingcrd_controller.go)
+the EnforcingReconciler will do the following:
+
+1. restore the resources to the desired stated if the are changed. Notice that you can exclude paths from being considered when deciding whether to restore a resource. As set oj JSON Path can be passed together with the LockedResource. It is recommended to set these paths:
+    1. `.metadata`
+    2. `.status`
+
+2. restore resources when they are deleted.
+
+The finalization method will look like this:
+
+```golang
+func (r *ReconcileEnforcingCRD) manageCleanUpLogic(instance *examplev1alpha1.EnforcingCRD) error {
+  err := r.Terminate(instance, true)
+  if err != nil {
+    log.Error(err, "unable to terminate enforcing reconciler for", "instance", instance)
+    return err
+  }
+  ... additional finalization logic ...
+  return nil
+}
+```
 
 ## Local Development
 
