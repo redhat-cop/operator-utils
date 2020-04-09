@@ -20,10 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 	"text/template"
-	"time"
 
 	apis "github.com/redhat-cop/operator-utils/pkg/util/apis"
 
@@ -73,10 +71,12 @@ func NewReconcilerBase(client client.Client, scheme *runtime.Scheme, restConfig 
 	}
 }
 
+//IsValid determines if a CR instance is valid. this implementation returns always true, should be overridden
 func (r *ReconcilerBase) IsValid(obj metav1.Object) (bool, error) {
 	return true, nil
 }
 
+//IsInitialized determines if a CR instance is initialized. this implementation returns always true, should be overridden
 func (r *ReconcilerBase) IsInitialized(obj metav1.Object) bool {
 	return true
 }
@@ -131,13 +131,21 @@ func (r *ReconcilerBase) getDynamicClientOnGVR(gvr schema.GroupVersionResource) 
 }
 
 // GetDynamicClientOnUnstructured returns a dynamic client on an Unstructured type. This client can be further namespaced.
-func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.NamespaceableResourceInterface, error) {
+func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.ResourceInterface, error) {
 	apiRes, err := r.getAPIReourceForUnstructured(obj)
 	if err != nil {
 		log.Error(err, "unable to get apiresource from unstructured", "unstructured", obj)
 		return nil, err
 	}
-	return r.GetDynamicClientOnAPIResource(apiRes)
+	dc, err := r.GetDynamicClientOnAPIResource(apiRes)
+	if err != nil {
+		log.Error(err, "unable to get namespaceable dynamic client from ", "resource", apiRes)
+		return nil, err
+	}
+	if apiRes.Namespaced {
+		return dc.Namespace(obj.GetNamespace()), nil
+	}
+	return dc, nil
 }
 
 func (r *ReconcilerBase) getAPIReourceForUnstructured(obj unstructured.Unstructured) (metav1.APIResource, error) {
@@ -224,6 +232,17 @@ func (r *ReconcilerBase) CreateOrUpdateResources(owner metav1.Object, namespace 
 	return nil
 }
 
+// CreateOrUpdateUnstructuredResources operates as CreateOrUpdate, but on an array of unstructured.Unstructured
+func (r *ReconcilerBase) CreateOrUpdateUnstructuredResources(owner metav1.Object, namespace string, objs []unstructured.Unstructured) error {
+	for _, obj := range objs {
+		err := r.CreateOrUpdateResource(owner, namespace, &obj)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // DeleteResource deletes an existing resource. It doesn't fail if the resource does not exist
 func (r *ReconcilerBase) DeleteResource(obj metav1.Object) error {
 	runtimeObj, ok := (obj).(runtime.Object)
@@ -243,6 +262,17 @@ func (r *ReconcilerBase) DeleteResource(obj metav1.Object) error {
 func (r *ReconcilerBase) DeleteResources(objs []metav1.Object) error {
 	for _, obj := range objs {
 		err := r.DeleteResource(obj)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteUnstructuredResources operates like DeleteResources, but on an arrays of unstructured.Unstructured
+func (r *ReconcilerBase) DeleteUnstructuredResources(objs []unstructured.Unstructured) error {
+	for _, obj := range objs {
+		err := r.DeleteResource(&obj)
 		if err != nil {
 			return err
 		}
@@ -278,6 +308,17 @@ func (r *ReconcilerBase) CreateResourceIfNotExists(owner metav1.Object, namespac
 func (r *ReconcilerBase) CreateResourcesIfNotExist(owner metav1.Object, namespace string, objs []metav1.Object) error {
 	for _, obj := range objs {
 		err := r.CreateResourceIfNotExists(owner, namespace, obj)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CreateUnstructuredResourcesIfNotExist operates as CreateResourceIfNotExists, but on an array of unstructured.Unstructured
+func (r *ReconcilerBase) CreateUnstructuredResourcesIfNotExist(owner metav1.Object, namespace string, objs []unstructured.Unstructured) error {
+	for _, obj := range objs {
+		err := r.CreateResourceIfNotExists(owner, namespace, &obj)
 		if err != nil {
 			return err
 		}
@@ -336,14 +377,12 @@ func (r *ReconcilerBase) DeleteTemplatedResources(data interface{}, template *te
 func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.Result, error) {
 	runtimeObj, ok := (obj).(runtime.Object)
 	if !ok {
-		log.Error(errors.New("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
-		return reconcile.Result{}, nil
+		err := errors.New("not a runtime.Object")
+		log.Error(err, "passed object was not a runtime.Object", "object", obj)
+		return reconcile.Result{}, err
 	}
-	var retryInterval time.Duration
 	r.GetRecorder().Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
 	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
-		lastUpdate := reconcileStatusAware.GetReconcileStatus().LastUpdate.Time
-		lastStatus := reconcileStatusAware.GetReconcileStatus().Status
 		status := apis.ReconcileStatus{
 			LastUpdate: metav1.Now(),
 			Reason:     issue.Error(),
@@ -353,31 +392,21 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
-			return reconcile.Result{
-				RequeueAfter: time.Second,
-				Requeue:      true,
-			}, nil
-		}
-		if lastUpdate.IsZero() || lastStatus == "Success" {
-			retryInterval = time.Second
-		} else {
-			retryInterval = status.LastUpdate.Sub(lastUpdate).Round(time.Second)
+			return reconcile.Result{}, err
 		}
 	} else {
 		log.Info("object is not RecocileStatusAware, not setting status")
-		retryInterval = time.Second
 	}
-	return reconcile.Result{
-		RequeueAfter: time.Duration(math.Min(float64(retryInterval.Nanoseconds()*2), float64(time.Hour.Nanoseconds()*6))),
-		Requeue:      true,
-	}, nil
+	return reconcile.Result{}, issue
 }
 
+// ManageSuccess will update the status of the CR and return a successful reconcile result
 func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, error) {
 	runtimeObj, ok := (obj).(runtime.Object)
 	if !ok {
-		log.Error(errors.New("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
-		return reconcile.Result{}, nil
+		err := errors.New("not a runtime.Object")
+		log.Error(err, "passed object was not a runtime.Object", "object", obj)
+		return reconcile.Result{}, err
 	}
 	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
 		status := apis.ReconcileStatus{
@@ -389,10 +418,7 @@ func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, err
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
-			return reconcile.Result{
-				RequeueAfter: time.Second,
-				Requeue:      true,
-			}, nil
+			return reconcile.Result{}, err
 		}
 	} else {
 		log.Info("object is not RecocileStatusAware, not setting status")

@@ -24,11 +24,28 @@ import (
 // +k8s:openapi-gen=true
 type ReconcileStatus struct {
 
+	// Status can be "Success" or "Failure"
 	// +kubebuilder:validation:Enum=Success;Failure
-	Status     string      `json:"status,omitempty"`
+	Status ResourceConditionType `json:"status,omitempty"`
+
+	// LastUpdate this is the time of the last when the status was last updated
 	LastUpdate metav1.Time `json:"lastUpdate,omitempty"`
-	Reason     string      `json:"reason,omitempty"`
+
+	// Reason a custom message describing the status or the error
+	// +kubebuilder:validation:Optional
+	Reason string `json:"reason,omitempty"`
 }
+
+// ResourceConditionType can be "Enforcing" of "Failure" depending on whether the LockedResourceReconciler is currently able to enforce the resource
+type ResourceConditionType string
+
+const (
+	// Enforcing means that the patch has been succesfully reconciled and it's being enforced
+	Success ResourceConditionType = "Success"
+
+	// Failure means that the patch has not been successfully reconciled and we cannot guarntee that it's being enforced
+	Failure ResourceConditionType = "Failure"
+)
 
 // ReconcileStatusAware represnt a CRD type that has been enabled with ReconcileStatus, it can then benefit of a series of utility methods.
 type ReconcileStatusAware interface {
