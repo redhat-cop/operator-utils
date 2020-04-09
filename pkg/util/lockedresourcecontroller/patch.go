@@ -15,7 +15,7 @@ func filterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstru
 		return &unstructured.Unstructured{}, err
 	}
 
-	patches, err := createPatchesFromJsonPaths(jsonPaths)
+	patches, err := createPatchesFromJSONPaths(jsonPaths)
 	if err != nil {
 		log.Error(err, "unable to create patches from", "jsonPaths", jsonPaths)
 		return &unstructured.Unstructured{}, err
@@ -49,18 +49,19 @@ func filterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstru
 	return result, nil
 }
 
+// Patch represents a patch operation
 type Patch struct {
 	Operation string `json:"op"`
 	Path      string `json:"path"`
 }
 
-func createPatchesFromJsonPaths(jsonPaths []string) ([][]byte, error) {
+func createPatchesFromJSONPaths(jsonPaths []string) ([][]byte, error) {
 	result := [][]byte{}
 	for _, jsonPath := range jsonPaths {
 		patch := []Patch{
-			Patch{
+			{
 				Operation: "remove",
-				Path:      getMergePathFromJsonPath(jsonPath),
+				Path:      getMergePathFromJSONPath(jsonPath),
 			},
 		}
 		mpatch, err := json.Marshal(patch)
@@ -73,7 +74,7 @@ func createPatchesFromJsonPaths(jsonPaths []string) ([][]byte, error) {
 	return result, nil
 }
 
-func getMergePathFromJsonPath(jsonPath string) string {
+func getMergePathFromJSONPath(jsonPath string) string {
 	//remove "$" if present
 	if strings.HasPrefix(jsonPath, "$") {
 		jsonPath = jsonPath[1:]

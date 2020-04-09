@@ -48,7 +48,7 @@ func NewLockedResourceManager(config *rest.Config, options manager.Options, pare
 	return lockedResourceManager, nil
 }
 
-// GetResource returns the currently enforced resources
+// GetResources returns the currently enforced resources
 func (lrm *LockedResourceManager) GetResources() []lockedresource.LockedResource {
 	return lrm.resources
 }
@@ -93,8 +93,10 @@ func (lrm *LockedResourceManager) Stop(deleteResources bool) error {
 	lrm.stoppableManager.Stop()
 	if deleteResources {
 		err := lrm.deleteResources()
-		log.Error(err, "unable to delete resources")
-		return err
+		if err != nil {
+			log.Error(err, "unable to delete resources")
+			return err
+		}
 	}
 	return nil
 }

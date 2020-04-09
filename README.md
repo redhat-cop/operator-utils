@@ -176,11 +176,11 @@ initialization...
 (optional) finalization...
 Phase1 ... calculate a set of resources to be enforced -> LockedResources
 
-	err = r.UpdateLockedResources(instance, lockedResources)
-	if err != nil {
-		log.Error(err, "unable to update locked resources")
-		return r.ManageError(instance, err)
-	}
+  err = r.UpdateLockedResources(instance, lockedResources)
+  if err != nil {
+    log.Error(err, "unable to update locked resources")
+    return r.ManageError(instance, err)
+ }
 
   return r.ManageSuccess(instance)
 ```
@@ -205,7 +205,7 @@ Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), ru
 
 ```shell
 oc apply -f deploy/crds
-OPERATOR_NAME='example-operator' operator-sdk --verbose up local --namespace ""
+OPERATOR_NAME='example-operator' operator-sdk --verbose run --local --namespace ""
 ```
 
 ## Testing

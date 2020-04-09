@@ -5,6 +5,7 @@ import (
 	errs "errors"
 
 	examplev1alpha1 "github.com/redhat-cop/operator-utils/pkg/apis/example/v1alpha1"
+	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -102,6 +103,33 @@ func (r *ReconcileEnforcingCRD) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	if ok := r.IsInitialized(instance); !ok {
+		err := r.GetClient().Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, "unable to update instance", "instance", instance)
+			return r.ManageError(instance, err)
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if util.IsBeingDeleted(instance) {
+		if !util.HasFinalizer(instance, controllerName) {
+			return reconcile.Result{}, nil
+		}
+		err := r.manageCleanUpLogic(instance)
+		if err != nil {
+			log.Error(err, "unable to delete instance", "instance", instance)
+			return r.ManageError(instance, err)
+		}
+		util.RemoveFinalizer(instance, controllerName)
+		err = r.GetClient().Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, "unable to update instance", "instance", instance)
+			return r.ManageError(instance, err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	lockedResources, err := lockedresource.GetLockedResources(instance.Spec.Resources)
 	if err != nil {
 		log.Error(err, "unable to get locked resources")
@@ -114,4 +142,24 @@ func (r *ReconcileEnforcingCRD) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	return r.ManageSuccess(instance)
+}
+
+func (r *ReconcileEnforcingCRD) manageCleanUpLogic(instance *examplev1alpha1.EnforcingCRD) error {
+	err := r.Terminate(instance, true)
+	if err != nil {
+		log.Error(err, "unable to terminate enforcing reconciler for", "instance", instance)
+		return err
+	}
+	return nil
+}
+
+// IsInitialized can be used to check if isntance is correctlty initialuzed.
+// returns false it it's not.
+func (r *ReconcileEnforcingCRD) IsInitialized(instance *examplev1alpha1.EnforcingCRD) bool {
+	needsUpdate := true
+	if len(instance.Spec.Resources) > 0 && !util.HasFinalizer(instance, controllerName) {
+		util.AddFinalizer(instance, controllerName)
+		needsUpdate = false
+	}
+	return needsUpdate
 }

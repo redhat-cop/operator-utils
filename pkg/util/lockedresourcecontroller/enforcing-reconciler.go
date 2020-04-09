@@ -39,15 +39,15 @@ func (er *EnforcingReconciler) GetStatusChangeChannel() <-chan event.GenericEven
 	return er.statusChange
 }
 
-func (er *EnforcingReconciler) getLockedResourceManager(parent metav1.Object) (*LockedResourceManager, error) {
-	lockedResourceManager, ok := er.lockedResourceManagers[apis.GetKeyShort(parent)]
+func (er *EnforcingReconciler) getLockedResourceManager(instance metav1.Object) (*LockedResourceManager, error) {
+	lockedResourceManager, ok := er.lockedResourceManagers[apis.GetKeyShort(instance)]
 	if !ok {
-		lockedResourceManager, err := NewLockedResourceManager(er.GetRestConfig(), manager.Options{}, parent, er.statusChange)
+		lockedResourceManager, err := NewLockedResourceManager(er.GetRestConfig(), manager.Options{}, instance, er.statusChange)
 		if err != nil {
 			log.Error(err, "unable to create LockedResourceManager")
 			return &LockedResourceManager{}, err
 		}
-		er.lockedResourceManagers[apis.GetKeyShort(parent)] = &lockedResourceManager
+		er.lockedResourceManagers[apis.GetKeyShort(instance)] = &lockedResourceManager
 		return &lockedResourceManager, nil
 	}
 	return lockedResourceManager, nil
@@ -58,8 +58,8 @@ func (er *EnforcingReconciler) getLockedResourceManager(parent metav1.Object) (*
 // 2. compare the currently enfrced resources with the one passed as parameters and then
 //    a. return immediately if they are the same
 //    b. restart the LockedResourceManager if they don't match
-func (er *EnforcingReconciler) UpdateLockedResources(parent metav1.Object, lockedResources []lockedresource.LockedResource) error {
-	lockedResourceManager, err := er.getLockedResourceManager(parent)
+func (er *EnforcingReconciler) UpdateLockedResources(instance metav1.Object, lockedResources []lockedresource.LockedResource) error {
+	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
 		log.Error(err, "unable to get LockedResourceManager")
 		return err
@@ -77,21 +77,21 @@ func (er *EnforcingReconciler) UpdateLockedResources(parent metav1.Object, locke
 }
 
 //ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
-func (er *EnforcingReconciler) ManageError(obj metav1.Object, issue error) (reconcile.Result, error) {
-	runtimeObj, ok := (obj).(runtime.Object)
+func (er *EnforcingReconciler) ManageError(instance metav1.Object, issue error) (reconcile.Result, error) {
+	runtimeObj, ok := (instance).(runtime.Object)
 	if !ok {
-		log.Error(errors.New("not a runtime.Object"), "passed object was not a runtime.Object", "object", obj)
+		log.Error(errors.New("not a runtime.Object"), "passed object was not a runtime.Object", "object", instance)
 		return reconcile.Result{}, nil
 	}
 	er.GetRecorder().Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
-	if enforcingReconcileStatusAware, updateStatus := (obj).(apis.EnforcingReconcileStatusAware); updateStatus {
+	if enforcingReconcileStatusAware, updateStatus := (instance).(apis.EnforcingReconcileStatusAware); updateStatus {
 		status := apis.EnforcingReconcileStatus{
 			ReconcileStatus: apis.ReconcileStatus{
 				LastUpdate: metav1.Now(),
 				Reason:     issue.Error(),
 				Status:     "Failure",
 			},
-			LockedResourceStatuses: er.GetLockedResourceStatuses(obj),
+			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
 		err := er.GetClient().Status().Update(context.Background(), runtimeObj)
@@ -106,21 +106,21 @@ func (er *EnforcingReconciler) ManageError(obj metav1.Object, issue error) (reco
 }
 
 // ManageSuccess will update the status of the CR and return a successful reconcile result
-func (er *EnforcingReconciler) ManageSuccess(obj metav1.Object) (reconcile.Result, error) {
-	runtimeObj, ok := (obj).(runtime.Object)
+func (er *EnforcingReconciler) ManageSuccess(instance metav1.Object) (reconcile.Result, error) {
+	runtimeObj, ok := (instance).(runtime.Object)
 	if !ok {
 		err := errors.New("not a runtime.Object")
-		log.Error(err, "passed object was not a runtime.Object", "object", obj)
+		log.Error(err, "passed object was not a runtime.Object", "object", instance)
 		return reconcile.Result{}, err
 	}
-	if enforcingReconcileStatusAware, updateStatus := (obj).(apis.EnforcingReconcileStatusAware); updateStatus {
+	if enforcingReconcileStatusAware, updateStatus := (instance).(apis.EnforcingReconcileStatusAware); updateStatus {
 		status := apis.EnforcingReconcileStatus{
 			ReconcileStatus: apis.ReconcileStatus{
 				LastUpdate: metav1.Now(),
 				Reason:     "",
 				Status:     "Success",
 			},
-			LockedResourceStatuses: er.GetLockedResourceStatuses(obj),
+			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
 		err := er.GetClient().Status().Update(context.Background(), runtimeObj)
@@ -135,10 +135,10 @@ func (er *EnforcingReconciler) ManageSuccess(obj metav1.Object) (reconcile.Resul
 }
 
 // GetLockedResourceStatuses returns the status for all LockedResources
-func (er *EnforcingReconciler) GetLockedResourceStatuses(obj metav1.Object) map[string]apis.ReconcileStatus {
-	lockedResourceManager, err := er.getLockedResourceManager(obj)
+func (er *EnforcingReconciler) GetLockedResourceStatuses(instance metav1.Object) map[string]apis.ReconcileStatus {
+	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Info("unable to get locked resource manager for", "parent", obj)
+		log.Info("unable to get locked resource manager for", "parent", instance)
 		return map[string]apis.ReconcileStatus{}
 	}
 	lockedResourceReconcileStatuses := map[string]apis.ReconcileStatus{}
@@ -146,4 +146,19 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(obj metav1.Object) map[
 		lockedResourceReconcileStatuses[apis.GetKeyLong(&lockedResourceReconciler.Resource)] = lockedResourceReconciler.GetStatus()
 	}
 	return lockedResourceReconcileStatuses
+}
+
+// Terminate will stop the execution for the current istance. It will also optionally delete the locked resources.
+func (er *EnforcingReconciler) Terminate(instance metav1.Object, deleteResources bool) error {
+	lockedResourceManager, err := er.getLockedResourceManager(instance)
+	if err != nil {
+		log.Info("unable to get locked resource manager for", "parent", instance)
+		return err
+	}
+	err = lockedResourceManager.Stop(deleteResources)
+	if err != nil {
+		log.Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
+		return err
+	}
+	return nil
 }
