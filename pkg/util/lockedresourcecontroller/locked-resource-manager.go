@@ -33,6 +33,10 @@ type LockedResourceManager struct {
 // parent: an object to which send notification when a recocilianton cicle completes for one of the reconcilers
 // statusChange: a channel through which send the notifications
 func NewLockedResourceManager(config *rest.Config, options manager.Options, parent metav1.Object, statusChange chan<- event.GenericEvent) (LockedResourceManager, error) {
+	//diabling metrics
+	options.MetricsBindAddress = "0"
+	options.LeaderElection = false
+
 	stoppableManager, err := stoppablemanager.NewStoppableManager(config, options)
 	if err != nil {
 		log.Error(err, "unable to create stoppable manager")

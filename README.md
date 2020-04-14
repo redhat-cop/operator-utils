@@ -49,24 +49,24 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 If you want status management, add this to your CRD:
 
 ```go
-import "github.com/redhat-cop/operator-utils/pkg/util/apis"
+import "github.com/operator-framework/operator-sdk/pkg/status"
 
 ...
 
 
 // +k8s:openapi-gen=true
 type MyCRDStatus struct {
- apis.ReconcileStatus `json:",inline"`
+ Conditions status.Conditions `json:"conditions"`
 }
 
 ...
 
-func (m *MyCRD) GetReconcileStatus() apis.ReconcileStatus {
- return m.Status.ReconcileStatus
+func (m *MyCRD) GetReconcileStatus() status.Conditions {
+  return m.Status.Conditions
 }
 
-func (m *MyCRD) SetReconcileStatus(reconcileStatus apis.ReconcileStatus) {
- m.Status.ReconcileStatus = reconcileStatus
+func (m *MyCRD) SetReconcileStatus(reconcileStatus status.Conditions) {
+  m.Status.Conditions = reconcileStatus
 }
 
 ```

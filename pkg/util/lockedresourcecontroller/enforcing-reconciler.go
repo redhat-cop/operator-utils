@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 
+	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -85,12 +88,15 @@ func (er *EnforcingReconciler) ManageError(instance metav1.Object, issue error) 
 	}
 	er.GetRecorder().Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
 	if enforcingReconcileStatusAware, updateStatus := (instance).(apis.EnforcingReconcileStatusAware); updateStatus {
+		condition := status.Condition{
+			Type:               "ReconcileError",
+			LastTransitionTime: metav1.Now(),
+			Message:            issue.Error(),
+			Reason:             astatus.FailedReason,
+			Status:             corev1.ConditionTrue,
+		}
 		status := apis.EnforcingReconcileStatus{
-			ReconcileStatus: apis.ReconcileStatus{
-				LastUpdate: metav1.Now(),
-				Reason:     issue.Error(),
-				Status:     "Failure",
-			},
+			Conditions:             status.NewConditions(condition),
 			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
@@ -100,7 +106,7 @@ func (er *EnforcingReconciler) ManageError(instance metav1.Object, issue error) 
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.Info("object is not RecocileStatusAware, not setting status")
+		log.V(1).Info("object is not RecocileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, issue
 }
@@ -114,12 +120,15 @@ func (er *EnforcingReconciler) ManageSuccess(instance metav1.Object) (reconcile.
 		return reconcile.Result{}, err
 	}
 	if enforcingReconcileStatusAware, updateStatus := (instance).(apis.EnforcingReconcileStatusAware); updateStatus {
+		condition := status.Condition{
+			Type:               "ReconcileSuccess",
+			LastTransitionTime: metav1.Now(),
+			Message:            astatus.SuccessfulMessage,
+			Reason:             astatus.SuccessfulReason,
+			Status:             corev1.ConditionTrue,
+		}
 		status := apis.EnforcingReconcileStatus{
-			ReconcileStatus: apis.ReconcileStatus{
-				LastUpdate: metav1.Now(),
-				Reason:     "",
-				Status:     "Success",
-			},
+			Conditions:             status.NewConditions(condition),
 			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
@@ -129,19 +138,19 @@ func (er *EnforcingReconciler) ManageSuccess(instance metav1.Object) (reconcile.
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.Info("object is not RecocileStatusAware, not setting status")
+		log.V(1).Info("object is not RecocileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, nil
 }
 
 // GetLockedResourceStatuses returns the status for all LockedResources
-func (er *EnforcingReconciler) GetLockedResourceStatuses(instance metav1.Object) map[string]apis.ReconcileStatus {
+func (er *EnforcingReconciler) GetLockedResourceStatuses(instance metav1.Object) map[string]status.Conditions {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Info("unable to get locked resource manager for", "parent", instance)
-		return map[string]apis.ReconcileStatus{}
+		log.Error(err, "unable to get locked resource manager for", "parent", instance)
+		return map[string]status.Conditions{}
 	}
-	lockedResourceReconcileStatuses := map[string]apis.ReconcileStatus{}
+	lockedResourceReconcileStatuses := map[string]status.Conditions{}
 	for _, lockedResourceReconciler := range lockedResourceManager.GetResourceReconcilers() {
 		lockedResourceReconcileStatuses[apis.GetKeyLong(&lockedResourceReconciler.Resource)] = lockedResourceReconciler.GetStatus()
 	}
@@ -152,12 +161,12 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(instance metav1.Object)
 func (er *EnforcingReconciler) Terminate(instance metav1.Object, deleteResources bool) error {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Info("unable to get locked resource manager for", "parent", instance)
+		log.V(1).Info("unable to get locked resource manager for", "parent", instance)
 		return err
 	}
 	err = lockedResourceManager.Stop(deleteResources)
 	if err != nil {
-		log.Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
+		log.V(1).Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
 		return err
 	}
 	return nil
