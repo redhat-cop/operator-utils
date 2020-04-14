@@ -36,7 +36,7 @@ func (lr *LockedResource) GetKey() string {
 }
 
 // GetLockedResources turns an array of Resources as read from an API into an array of LockedResources, usable by the LockedResourceManager
-func GetLockedResources(resources []apis.Resource) ([]LockedResource, error) {
+func GetLockedResources(resources []apis.LockedResource) ([]LockedResource, error) {
 	lockedResources := []LockedResource{}
 	for _, resource := range resources {
 		bb, err := yaml.YAMLToJSON(resource.Object.Raw)
@@ -61,7 +61,7 @@ func GetLockedResources(resources []apis.Resource) ([]LockedResource, error) {
 var templates = map[string]*template.Template{}
 
 // GetLockedResourcesFromTemplate turns an array of ResourceTemplates as read from an API into an array of LockedResources using a params to process the templates
-func GetLockedResourcesFromTemplate(resources []apis.ResourceTemplate, params interface{}) ([]LockedResource, error) {
+func GetLockedResourcesFromTemplate(resources []apis.LockedResourceTemplate, params interface{}) ([]LockedResource, error) {
 	lockedResources := []LockedResource{}
 	for _, resource := range resources {
 		template, err := getTemplate(&resource)
@@ -82,7 +82,7 @@ func GetLockedResourcesFromTemplate(resources []apis.ResourceTemplate, params in
 	return lockedResources, nil
 }
 
-func getTemplate(resource *apis.ResourceTemplate) (*template.Template, error) {
+func getTemplate(resource *apis.LockedResourceTemplate) (*template.Template, error) {
 	template, ok := templates[resource.ObjectTemplate]
 	var err error
 	if !ok {

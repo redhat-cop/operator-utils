@@ -39,8 +39,8 @@ spec:
                 Resources is a list of resource manifests that should be locked into
                 the specified configuration'
               items:
-                description: Resource represents a resource to be enforced in a LockedResourceController
-                  and can be used in a API specification
+                description: LockedResource represents a resource to be enforced in
+                  a LockedResourceController and can be used in a API specification
                 properties:
                   excludedPaths:
                     description: ExludedPaths are a set of json paths that need not

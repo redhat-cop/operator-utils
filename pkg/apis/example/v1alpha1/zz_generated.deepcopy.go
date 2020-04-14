@@ -76,7 +76,7 @@ func (in *EnforcingCRDSpec) DeepCopyInto(out *EnforcingCRDSpec) {
 	*out = *in
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
-		*out = make([]apis.Resource, len(*in))
+		*out = make([]apis.LockedResource, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

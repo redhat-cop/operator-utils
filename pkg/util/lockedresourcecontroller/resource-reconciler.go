@@ -108,14 +108,14 @@ func (lor *LockedResourceReconciler) Reconcile(request reconcile.Request) (recon
 		log.Error(err, "unable to lookup", "object", lor.Resource)
 		return lor.manageError(err)
 	}
-	log.Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
+	log.V(1).Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
 	equal, err := lor.isEqual(instance)
 	if err != nil {
 		log.Error(err, "unable to determine if", "object", lor.Resource, "is equal to object", instance)
 		return lor.manageError(err)
 	}
 	if !equal {
-		log.Info("determined that resources are NOT equal")
+		log.V(1).Info("determined that resources are NOT equal")
 		patch, err := filterOutPaths(&lor.Resource, lor.ExcludePaths)
 		if err != nil {
 			log.Error(err, "unable to filter out ", "excluded paths", lor.ExcludePaths, "from object", lor.Resource)
@@ -126,7 +126,7 @@ func (lor *LockedResourceReconciler) Reconcile(request reconcile.Request) (recon
 			log.Error(err, "unable to marshall ", "object", patch)
 			return lor.manageError(err)
 		}
-		log.Info("executing", "patch", string(patchBytes), "on object", instance)
+		log.V(1).Info("executing", "patch", string(patchBytes), "on object", instance)
 		_, err = client.Patch(instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			log.Error(err, "unable to patch ", "object", instance, "with patch", string(patchBytes))
@@ -134,13 +134,13 @@ func (lor *LockedResourceReconciler) Reconcile(request reconcile.Request) (recon
 		}
 		return lor.manageSuccess()
 	}
-	log.Info("determined that resources are equal")
+	log.V(1).Info("determined that resources are equal")
 	return lor.manageSuccess()
 }
 
 func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured) (bool, error) {
 	left, err := filterOutPaths(&lor.Resource, lor.ExcludePaths)
-	log.Info("resource", "desired", left)
+	log.V(1).Info("resource", "desired", left)
 	if err != nil {
 		return false, err
 	}
@@ -148,7 +148,7 @@ func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured
 	if err != nil {
 		return false, err
 	}
-	log.Info("resource", "current", right)
+	log.V(1).Info("resource", "current", right)
 	return reflect.DeepEqual(left, right), nil
 }
 

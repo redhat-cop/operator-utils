@@ -16,7 +16,7 @@ type EnforcingCRDSpec struct {
 	// Resources is a list of resource manifests that should be locked into the specified configuration
 	// +kubebuilder:validation:Optional
 	// +listType=atomic
-	Resources []apis.Resource `json:"resources,omitempty"`
+	Resources []apis.LockedResource `json:"resources,omitempty"`
 }
 
 // EnforcingCRDStatus defines the observed state of EnforcingCRD

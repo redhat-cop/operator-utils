@@ -106,7 +106,7 @@ func (er *EnforcingReconciler) ManageError(instance metav1.Object, issue error) 
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.Info("object is not RecocileStatusAware, not setting status")
+		log.V(1).Info("object is not RecocileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, issue
 }
@@ -138,7 +138,7 @@ func (er *EnforcingReconciler) ManageSuccess(instance metav1.Object) (reconcile.
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.Info("object is not RecocileStatusAware, not setting status")
+		log.V(1).Info("object is not RecocileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, nil
 }
@@ -147,7 +147,7 @@ func (er *EnforcingReconciler) ManageSuccess(instance metav1.Object) (reconcile.
 func (er *EnforcingReconciler) GetLockedResourceStatuses(instance metav1.Object) map[string]status.Conditions {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Info("unable to get locked resource manager for", "parent", instance)
+		log.Error(err, "unable to get locked resource manager for", "parent", instance)
 		return map[string]status.Conditions{}
 	}
 	lockedResourceReconcileStatuses := map[string]status.Conditions{}
@@ -161,12 +161,12 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(instance metav1.Object)
 func (er *EnforcingReconciler) Terminate(instance metav1.Object, deleteResources bool) error {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Info("unable to get locked resource manager for", "parent", instance)
+		log.V(1).Info("unable to get locked resource manager for", "parent", instance)
 		return err
 	}
 	err = lockedResourceManager.Stop(deleteResources)
 	if err != nil {
-		log.Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
+		log.V(1).Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
 		return err
 	}
 	return nil
