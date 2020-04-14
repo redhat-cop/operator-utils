@@ -6,6 +6,8 @@ import (
 
 	"encoding/json"
 
+	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +35,7 @@ type LockedResourceReconciler struct {
 	Resource     unstructured.Unstructured
 	ExcludePaths []string
 	util.ReconcilerBase
-	status       apis.ReconcileStatus
+	status       status.Conditions
 	statusChange chan<- event.GenericEvent
 	parentObject metav1.Object
 }
@@ -196,26 +198,30 @@ func (p *resourceModifiedPredicate) Delete(e event.DeleteEvent) bool {
 }
 
 func (lor *LockedResourceReconciler) manageError(err error) (reconcile.Result, error) {
-	condition := apis.ReconcileStatus{
-		LastUpdate: metav1.Now(),
-		Reason:     err.Error(),
-		Status:     apis.Failure,
+	condition := status.Condition{
+		Type:               "ReconcileError",
+		LastTransitionTime: metav1.Now(),
+		Message:            err.Error(),
+		Reason:             astatus.FailedReason,
+		Status:             corev1.ConditionTrue,
 	}
-	lor.setStatus(condition)
+	lor.setStatus(status.NewConditions(condition))
 	return reconcile.Result{}, err
 }
 
 func (lor *LockedResourceReconciler) manageSuccess() (reconcile.Result, error) {
-	condition := apis.ReconcileStatus{
-		LastUpdate: metav1.Now(),
-		Reason:     "",
-		Status:     apis.Success,
+	condition := status.Condition{
+		Type:               "ReconcileSuccess",
+		LastTransitionTime: metav1.Now(),
+		Message:            astatus.SuccessfulMessage,
+		Reason:             astatus.SuccessfulReason,
+		Status:             corev1.ConditionTrue,
 	}
-	lor.setStatus(condition)
+	lor.setStatus(status.NewConditions(condition))
 	return reconcile.Result{}, nil
 }
 
-func (lor *LockedResourceReconciler) setStatus(status apis.ReconcileStatus) {
+func (lor *LockedResourceReconciler) setStatus(status status.Conditions) {
 	lor.status = status
 	if lor.statusChange != nil {
 		lor.statusChange <- event.GenericEvent{
@@ -225,6 +231,6 @@ func (lor *LockedResourceReconciler) setStatus(status apis.ReconcileStatus) {
 }
 
 // GetStatus returns the latest reconcile status
-func (lor *LockedResourceReconciler) GetStatus() apis.ReconcileStatus {
+func (lor *LockedResourceReconciler) GetStatus() status.Conditions {
 	return lor.status
 }

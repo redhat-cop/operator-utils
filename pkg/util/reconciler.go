@@ -23,8 +23,10 @@ import (
 	"strings"
 	"text/template"
 
+	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	apis "github.com/redhat-cop/operator-utils/pkg/util/apis"
-
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -123,7 +125,7 @@ func (r *ReconcilerBase) GetDynamicClientOnAPIResource(resource metav1.APIResour
 func (r *ReconcilerBase) getDynamicClientOnGVR(gvr schema.GroupVersionResource) (dynamic.NamespaceableResourceInterface, error) {
 	intf, err := dynamic.NewForConfig(r.GetRestConfig())
 	if err != nil {
-		log.Error(err, "unable to get dynamic client")
+		log.Error(err, "Unable to get dynamic client")
 		return nil, err
 	}
 	res := intf.Resource(gvr)
@@ -134,12 +136,12 @@ func (r *ReconcilerBase) getDynamicClientOnGVR(gvr schema.GroupVersionResource) 
 func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.ResourceInterface, error) {
 	apiRes, err := r.getAPIReourceForUnstructured(obj)
 	if err != nil {
-		log.Error(err, "unable to get apiresource from unstructured", "unstructured", obj)
+		log.Error(err, "Unable to get apiresource from unstructured", "unstructured", obj)
 		return nil, err
 	}
 	dc, err := r.GetDynamicClientOnAPIResource(apiRes)
 	if err != nil {
-		log.Error(err, "unable to get namespaceable dynamic client from ", "resource", apiRes)
+		log.Error(err, "Unable to get namespaceable dynamic client from ", "resource", apiRes)
 		return nil, err
 	}
 	if apiRes.Namespaced {
@@ -153,12 +155,12 @@ func (r *ReconcilerBase) getAPIReourceForUnstructured(obj unstructured.Unstructu
 	res := metav1.APIResource{}
 	discoveryClient, err := r.GetDiscoveryClient()
 	if err != nil {
-		log.Error(err, "unable to create discovery client")
+		log.Error(err, "Unable to create discovery client")
 		return res, err
 	}
 	resList, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {
-		log.Error(err, "unable to retrieve resouce list for:", "groupversion", gvk.GroupVersion().String())
+		log.Error(err, "Unable to retrieve resouce list for:", "groupversion", gvk.GroupVersion().String())
 		return res, err
 	}
 	for _, resource := range resList.APIResources {
@@ -382,13 +384,15 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 		return reconcile.Result{}, err
 	}
 	r.GetRecorder().Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
-	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
-		status := apis.ReconcileStatus{
-			LastUpdate: metav1.Now(),
-			Reason:     issue.Error(),
-			Status:     "Failure",
+	if reconcileStatusAware, updateStatus := (obj).(apis.ConditionsStatusAware); updateStatus {
+		condition := status.Condition{
+			Type:               "ReconcileError",
+			LastTransitionTime: metav1.Now(),
+			Message:            issue.Error(),
+			Reason:             astatus.FailedReason,
+			Status:             corev1.ConditionTrue,
 		}
-		reconcileStatusAware.SetReconcileStatus(status)
+		reconcileStatusAware.SetReconcileStatus(status.NewConditions(condition))
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
@@ -408,13 +412,15 @@ func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, err
 		log.Error(err, "passed object was not a runtime.Object", "object", obj)
 		return reconcile.Result{}, err
 	}
-	if reconcileStatusAware, updateStatus := (obj).(apis.ReconcileStatusAware); updateStatus {
-		status := apis.ReconcileStatus{
-			LastUpdate: metav1.Now(),
-			Reason:     "",
-			Status:     "Success",
+	if reconcileStatusAware, updateStatus := (obj).(apis.ConditionsStatusAware); updateStatus {
+		condition := status.Condition{
+			Type:               "ReconcileSuccess",
+			LastTransitionTime: metav1.Now(),
+			Message:            astatus.SuccessfulMessage,
+			Reason:             astatus.SuccessfulReason,
+			Status:             corev1.ConditionTrue,
 		}
-		reconcileStatusAware.SetReconcileStatus(status)
+		reconcileStatusAware.SetReconcileStatus(status.NewConditions(condition))
 		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
 		if err != nil {
 			log.Error(err, "unable to update status")
