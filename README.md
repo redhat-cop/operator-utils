@@ -174,9 +174,9 @@ func (r *ReconcileMyCRD) manageCleanUpLogic(mycrd *examplev1alpha1.MyCRD) error 
 }
 ```
 
-## Enforcing Resource Operator Support
+## Support for operators that need to enforce a set of resources to a defined state
 
-Many operator have the following logic:
+Many operators have the following logic:
 
 1. Phase 1: based on the CR and potentially additional status as set of resources that need to exist is calculated.
 2. Phase 2: These resources are then created or updated against the master API.
@@ -228,6 +228,8 @@ func (r *ReconcileEnforcingCRD) manageCleanUpLogic(instance *examplev1alpha1.Enf
 }
 ```
 
+Convenience methods are also available for when resources are templated. See the [templatedenforcingcrd](./pkgcontroller/templatedenforcingcrd/templatedenforcingcrd_controller.go) controller as an example.
+
 ## Local Development
 
 Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
@@ -246,16 +248,23 @@ Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), ru
 
 ```shell
 oc apply -f deploy/crds
-OPERATOR_NAME='example-operator' operator-sdk --verbose run --local --namespace ""
+OPERATOR_NAME='example-operator' operator-sdk --verbose run --local --namespace "" --operator-flags="--zap-level=debug"
 ```
 
 ## Testing
 
-### Enforcing CRD testing
+### EnforcingCRD controller testing
 
 ```shell
 oc new-project test-enforcingcrd
 oc apply -f test/enforcing_cr.yaml -n test-enforcingcrd
+```
+
+### TemplatedEnforcingCRD controller testing
+
+```shell
+oc new-project test-templatedenforcingcrd
+oc apply -f test/templatedenforcing_cr.yaml -n test-templatedenforcingcrd
 ```
 
 ## License

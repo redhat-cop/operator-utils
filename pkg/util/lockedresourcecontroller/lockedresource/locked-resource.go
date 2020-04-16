@@ -6,6 +6,7 @@ import (
 
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
@@ -61,7 +62,7 @@ func GetLockedResources(resources []apis.LockedResource) ([]LockedResource, erro
 var templates = map[string]*template.Template{}
 
 // GetLockedResourcesFromTemplate turns an array of ResourceTemplates as read from an API into an array of LockedResources using a params to process the templates
-func GetLockedResourcesFromTemplate(resources []apis.LockedResourceTemplate, params interface{}) ([]LockedResource, error) {
+func GetLockedResourcesFromTemplates(resources []apis.LockedResourceTemplate, params interface{}) ([]LockedResource, error) {
 	lockedResources := []LockedResource{}
 	for _, resource := range resources {
 		template, err := getTemplate(&resource)
@@ -83,15 +84,31 @@ func GetLockedResourcesFromTemplate(resources []apis.LockedResourceTemplate, par
 }
 
 func getTemplate(resource *apis.LockedResourceTemplate) (*template.Template, error) {
-	template, ok := templates[resource.ObjectTemplate]
+	tmpl, ok := templates[resource.ObjectTemplate]
 	var err error
 	if !ok {
-		template, err = template.New(resource.ObjectTemplate).Parse(resource.ObjectTemplate)
+		tmpl, err = template.New(resource.ObjectTemplate).Parse(resource.ObjectTemplate)
 		if err != nil {
 			log.Error(err, "unable to parse", "template", resource.ObjectTemplate)
-			return nil, nil
+			return nil, err
 		}
-		templates[resource.ObjectTemplate] = template
+		log.V(1).Info("", "template", tmpl)
+		templates[resource.ObjectTemplate] = tmpl
 	}
-	return template, nil
+	return tmpl, nil
+}
+
+//DefaultExcludedPaths represents paths that are exlcuded by default in all resources
+var DefaultExcludedPaths = []string{".metadata", ".status", ".spec.replicas"}
+
+//DefaultExcludedPathsSet represents paths that are exlcuded by default in all resources
+var DefaultExcludedPathsSet = strset.New(DefaultExcludedPaths...)
+
+//GetResources returs an arrays of apis.Resources from an arya of LockedResources, useful for mass operations on the LockedResources
+func GetResources(lockedResources []LockedResource) []apis.Resource {
+	resources := []apis.Resource{}
+	for _, lockedResource := range lockedResources {
+		resources = append(resources, &lockedResource.Unstructured)
+	}
+	return resources
 }

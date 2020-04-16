@@ -28,7 +28,7 @@ func filterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstru
 		}
 		doc1, err := decodedPatch.Apply(doc)
 		if err != nil {
-			if strings.Contains(err.Error(), "Unable to remove nonexistent key") {
+			if strings.Contains(err.Error(), "Unable to remove nonexistent key") || strings.Contains(err.Error(), "remove operation does not apply: doc is missing path") {
 				continue
 			}
 			log.Error(err, "unable to apply", "patch", patch, "to json", string(doc))

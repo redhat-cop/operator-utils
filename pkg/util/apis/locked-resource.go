@@ -1,6 +1,8 @@
 package apis
 
-import "k8s.io/apimachinery/pkg/runtime"
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+)
 
 // LockedResource represents a resource to be enforced in a LockedResourceController and can be used in a API specification
 // +k8s:openapi-gen=true
