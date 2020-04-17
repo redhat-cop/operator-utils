@@ -80,6 +80,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Channel{Source: reconcileTemplatedEnforcingCRD.GetStatusChangeChannel()},
 		&handler.EnqueueRequestForObject{},
 	)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

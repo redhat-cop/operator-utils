@@ -11,6 +11,7 @@ import (
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -76,6 +77,21 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Channel{Source: enforcingReconciler.GetStatusChangeChannel()},
 		&handler.EnqueueRequestForObject{},
 	)
+	if err != nil {
+		return err
+	}
+
+	if ok, err := enforcingReconciler.IsAPIResourceAvailable(schema.GroupVersionKind{
+		Group:   "example.io",
+		Version: "v1alpha1",
+		Kind:    "EnforcingCRD",
+	}); !ok || err != nil {
+		log.Info("unable to lookup own API")
+		if err != nil {
+			return err
+		}
+		return errs.New("unable to lookup own API")
+	}
 
 	return nil
 }
