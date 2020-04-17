@@ -161,8 +161,6 @@ func (r *ReconcileTemplatedEnforcingCRD) Reconcile(request reconcile.Request) (r
 	}
 
 	return r.ManageSuccess(instance)
-
-	return reconcile.Result{}, nil
 }
 
 // IsInitialized can be used to check if isntance is correctlty initialuzed.
