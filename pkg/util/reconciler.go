@@ -132,6 +132,7 @@ func (r *ReconcilerBase) getDynamicClientOnGVR(gvr schema.GroupVersionResource) 
 }
 
 // GetDynamicClientOnUnstructured returns a dynamic client on an Unstructured type. This client can be further namespaced.
+// TODO consider refactoring using apimachinery.RESTClientForGVK in controller-runtime
 func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.ResourceInterface, error) {
 	apiRes, err := r.getAPIReourceForUnstructured(obj)
 	if err != nil {
@@ -242,7 +243,7 @@ func (r *ReconcilerBase) CreateOrUpdateUnstructuredResources(owner apis.Resource
 	return nil
 }
 
-// DeleteResource deletes an existing resource. It doesn't fail if the resource does not exist
+// DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
 func (r *ReconcilerBase) DeleteResourceIfExists(obj apis.Resource) error {
 	err := r.GetClient().Delete(context.TODO(), obj)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -252,7 +253,7 @@ func (r *ReconcilerBase) DeleteResourceIfExists(obj apis.Resource) error {
 	return nil
 }
 
-// DeleteResources operates like DeleteResources, but on an arrays of resources
+// DeleteResourcesIfExist operates like DeleteResources, but on an arrays of resources
 func (r *ReconcilerBase) DeleteResourcesIfExist(objs []apis.Resource) error {
 	for _, obj := range objs {
 		err := r.DeleteResourceIfExists(obj)
@@ -363,14 +364,12 @@ func (r *ReconcilerBase) DeleteTemplatedResources(data interface{}, template *te
 	return nil
 }
 
-func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.Result, error) {
-	runtimeObj, ok := (obj).(runtime.Object)
-	if !ok {
-		err := errors.New("not a runtime.Object")
-		log.Error(err, "passed object was not a runtime.Object", "object", obj)
-		return reconcile.Result{}, err
-	}
-	r.GetRecorder().Event(runtimeObj, "Warning", "ProcessingError", issue.Error())
+//ManageError will take care of the following:
+// 1. generate a warning event attched to the passed object
+// 2. set the status of the passed to a error condition if the object implements the apis.ConditionsStatusAware interface
+// 3. return a reconcile status with the passed error
+func (r *ReconcilerBase) ManageError(obj apis.Resource, issue error) (reconcile.Result, error) {
+	r.GetRecorder().Event(obj, "Warning", "ProcessingError", issue.Error())
 	if reconcileStatusAware, updateStatus := (obj).(apis.ConditionsStatusAware); updateStatus {
 		condition := status.Condition{
 			Type:               "ReconcileError",
@@ -380,7 +379,7 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 			Status:             corev1.ConditionTrue,
 		}
 		reconcileStatusAware.SetReconcileStatus(status.NewConditions(condition))
-		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
+		err := r.GetClient().Status().Update(context.Background(), obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
 			return reconcile.Result{}, err
@@ -392,13 +391,7 @@ func (r *ReconcilerBase) ManageError(obj metav1.Object, issue error) (reconcile.
 }
 
 // ManageSuccess will update the status of the CR and return a successful reconcile result
-func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, error) {
-	runtimeObj, ok := (obj).(runtime.Object)
-	if !ok {
-		err := errors.New("not a runtime.Object")
-		log.Error(err, "passed object was not a runtime.Object", "object", obj)
-		return reconcile.Result{}, err
-	}
+func (r *ReconcilerBase) ManageSuccess(obj apis.Resource) (reconcile.Result, error) {
 	if reconcileStatusAware, updateStatus := (obj).(apis.ConditionsStatusAware); updateStatus {
 		condition := status.Condition{
 			Type:               "ReconcileSuccess",
@@ -408,7 +401,7 @@ func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, err
 			Status:             corev1.ConditionTrue,
 		}
 		reconcileStatusAware.SetReconcileStatus(status.NewConditions(condition))
-		err := r.GetClient().Status().Update(context.Background(), runtimeObj)
+		err := r.GetClient().Status().Update(context.Background(), obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
 			return reconcile.Result{}, err
@@ -417,4 +410,26 @@ func (r *ReconcilerBase) ManageSuccess(obj metav1.Object) (reconcile.Result, err
 		log.V(1).Info("object is not RecocileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, nil
+}
+
+//IsAPIResourceAvailable checks of a give GroupVersionKind is available in the running apiserver
+func (r *ReconcilerBase) IsAPIResourceAvailable(GVK schema.GroupVersionKind) (bool, error) {
+	discoveryClient, _ := r.GetDiscoveryClient()
+
+	// Query for known OpenShift API resource to verify it is available
+	apiResources, err := discoveryClient.ServerResourcesForGroupVersion(GVK.GroupVersion().String())
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		log.Error(err, "Unable to retrive resources for", "GVK", GVK)
+		return false, err
+	}
+	for _, resource := range apiResources.APIResources {
+		if resource.Kind == GVK.Kind {
+			return true, nil
+		}
+	}
+	return false, nil
 }
