@@ -1,7 +1,0 @@
-apiVersion: example.io/v1alpha1
-kind: TemplatedEnforcingCRD
-metadata:
-  name: example-templatedenforcingcrd
-spec:
-  # Add fields here
-  size: 3
