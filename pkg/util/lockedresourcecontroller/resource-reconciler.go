@@ -3,6 +3,7 @@ package lockedresourcecontroller
 import (
 	"context"
 	"reflect"
+	"sync"
 
 	"encoding/json"
 
@@ -37,6 +38,7 @@ type LockedResourceReconciler struct {
 	util.ReconcilerBase
 	status       status.Conditions
 	statusChange chan<- event.GenericEvent
+	statusLock   sync.Mutex
 	parentObject metav1.Object
 }
 
@@ -49,6 +51,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 		ExcludePaths:   excludePaths,
 		statusChange:   statusChange,
 		parentObject:   parentObject,
+		statusLock:     sync.Mutex{},
 	}
 
 	err := reconciler.CreateOrUpdateResource(nil, "", object.DeepCopy())
@@ -222,6 +225,8 @@ func (lor *LockedResourceReconciler) manageSuccess() (reconcile.Result, error) {
 }
 
 func (lor *LockedResourceReconciler) setStatus(status status.Conditions) {
+	lor.statusLock.Lock()
+	defer lor.statusLock.Unlock()
 	lor.status = status
 	if lor.statusChange != nil {
 		lor.statusChange <- event.GenericEvent{
@@ -232,5 +237,8 @@ func (lor *LockedResourceReconciler) setStatus(status status.Conditions) {
 
 // GetStatus returns the latest reconcile status
 func (lor *LockedResourceReconciler) GetStatus() status.Conditions {
-	return lor.status
+	lor.statusLock.Lock()
+	defer lor.statusLock.Unlock()
+	status := lor.status
+	return status
 }

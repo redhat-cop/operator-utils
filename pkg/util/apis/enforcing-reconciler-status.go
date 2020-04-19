@@ -2,14 +2,15 @@ package apis
 
 import "github.com/operator-framework/operator-sdk/pkg/status"
 
-// EnforcingReconcileStatus represent the status of the last reconcile cycle. It's used to communicate success or failer and the error message
-// +k8s:openapi-gen=true
+// EnforcingReconcileStatus represents the status of the last reconcile cycle. It's used to communicate success or failure and the error message
 type EnforcingReconcileStatus struct {
 
 	// ReconcileStatus this is the general status of the main reconciler
-	Conditions status.Conditions `json:"conditions"`
+	// +kubebuilder:validation:Optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
 
-	//LockedResourceStatuses containes the reconcile status for each of the managed resoureces
+	//LockedResourceStatuses contains the reconcile status for each of the managed resources
+	// +kubebuilder:validation:Optional
 	LockedResourceStatuses map[string]status.Conditions `json:"lockedResourceStatuses,omitempty"`
 }
 
@@ -25,22 +26,22 @@ func (in *EnforcingReconcileStatus) DeepCopyInto(out *EnforcingReconcileStatus) 
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make(status.Conditions, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.LockedResourceStatuses != nil {
 		in, out := &in.LockedResourceStatuses, &out.LockedResourceStatuses
 		*out = make(map[string]status.Conditions, len(*in))
 		for key, val := range *in {
-			var outVal map[status.ConditionType]status.Condition
+			var outVal []status.Condition
 			if val == nil {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
 				*out = make(status.Conditions, len(*in))
-				for key, val := range *in {
-					(*out)[key] = *val.DeepCopy()
+				for i := range *in {
+					(*in)[i].DeepCopyInto(&(*out)[i])
 				}
 			}
 			(*out)[key] = outVal

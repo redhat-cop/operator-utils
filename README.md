@@ -248,7 +248,7 @@ Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), ru
 
 ```shell
 oc apply -f deploy/crds
-OPERATOR_NAME='example-operator' operator-sdk --verbose run --local --namespace "" --operator-flags="--zap-level=debug"
+OPERATOR_NAME='example-operator' operator-sdk --verbose run --local --watch-namespace "" --operator-flags="--zap-level=debug"
 ```
 
 ## Testing

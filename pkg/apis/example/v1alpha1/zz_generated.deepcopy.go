@@ -194,8 +194,8 @@ func (in *MyCRDStatus) DeepCopyInto(out *MyCRDStatus) {
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
 		*out = make(status.Conditions, len(*in))
-		for key, val := range *in {
-			(*out)[key] = *val.DeepCopy()
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	return
