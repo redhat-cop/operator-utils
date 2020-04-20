@@ -3,6 +3,7 @@ package lockedresourcecontroller
 import (
 	"context"
 	"errors"
+	"sync"
 
 	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
 	"github.com/operator-framework/operator-sdk/pkg/status"
@@ -24,16 +25,18 @@ import (
 // the enforcing piece is taken care for, an implementor would just neeed to take care of the logic that computes the resorces to be enforced.
 type EnforcingReconciler struct {
 	util.ReconcilerBase
-	lockedResourceManagers map[string]*LockedResourceManager
-	statusChange           chan event.GenericEvent
+	lockedResourceManagers      map[string]*LockedResourceManager
+	statusChange                chan event.GenericEvent
+	lockedResourceManagersMutex sync.Mutex
 }
 
 //NewEnforcingReconciler creates a new EnforcingReconciler
 func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, recorder record.EventRecorder) EnforcingReconciler {
 	return EnforcingReconciler{
-		ReconcilerBase:         util.NewReconcilerBase(client, scheme, restConfig, recorder),
-		lockedResourceManagers: map[string]*LockedResourceManager{},
-		statusChange:           make(chan event.GenericEvent),
+		ReconcilerBase:              util.NewReconcilerBase(client, scheme, restConfig, recorder),
+		lockedResourceManagers:      map[string]*LockedResourceManager{},
+		statusChange:                make(chan event.GenericEvent),
+		lockedResourceManagersMutex: sync.Mutex{},
 	}
 }
 
@@ -43,6 +46,8 @@ func (er *EnforcingReconciler) GetStatusChangeChannel() <-chan event.GenericEven
 }
 
 func (er *EnforcingReconciler) getLockedResourceManager(instance metav1.Object) (*LockedResourceManager, error) {
+	er.lockedResourceManagersMutex.Lock()
+	defer er.lockedResourceManagersMutex.Unlock()
 	lockedResourceManager, ok := er.lockedResourceManagers[apis.GetKeyShort(instance)]
 	if !ok {
 		lockedResourceManager, err := NewLockedResourceManager(er.GetRestConfig(), manager.Options{}, instance, er.statusChange)
