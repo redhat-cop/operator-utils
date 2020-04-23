@@ -1,14 +1,12 @@
 package lockedresourcecontroller
 
 import (
-	"context"
 	"errors"
 
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -140,8 +138,8 @@ func (lrm *LockedResourceManager) IsSameResources(resources []lockedresource.Loc
 }
 
 func (lrm *LockedResourceManager) deleteResources() error {
-	for _, resource := range lrm.GetResources() {
-		err := lrm.stoppableManager.Manager.GetClient().Delete(context.TODO(), &resource.Unstructured, &client.DeleteOptions{})
+	for i, resource := range lrm.GetResources() {
+		err := lrm.resourceReconcilers[i].DeleteResourceIfExists(&resource.Unstructured)
 		if err != nil {
 			log.Error(err, "unable to delete", "resource", resource.Unstructured)
 			return err
