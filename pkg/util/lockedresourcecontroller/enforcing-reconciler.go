@@ -169,10 +169,12 @@ func (er *EnforcingReconciler) Terminate(instance metav1.Object, deleteResources
 		log.V(1).Info("unable to get locked resource manager for", "parent", instance)
 		return err
 	}
-	err = lockedResourceManager.Stop(deleteResources)
-	if err != nil {
-		log.V(1).Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
-		return err
+	if lockedResourceManager.IsStarted() {
+		err = lockedResourceManager.Stop(deleteResources)
+		if err != nil {
+			log.V(1).Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
+			return err
+		}
 	}
 	return nil
 }
