@@ -3,9 +3,11 @@ package lockedresourcecontroller
 import (
 	"errors"
 
+	"github.com/redhat-cop/operator-utils/pkg/util"
+	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -21,7 +23,7 @@ type LockedResourceManager struct {
 	resourceReconcilers []*LockedResourceReconciler
 	config              *rest.Config
 	options             manager.Options
-	parent              metav1.Object
+	parent              apis.Resource
 	statusChange        chan<- event.GenericEvent
 }
 
@@ -30,7 +32,7 @@ type LockedResourceManager struct {
 // options: the manager options
 // parent: an object to which send notification when a recocilianton cicle completes for one of the reconcilers
 // statusChange: a channel through which send the notifications
-func NewLockedResourceManager(config *rest.Config, options manager.Options, parent metav1.Object, statusChange chan<- event.GenericEvent) (LockedResourceManager, error) {
+func NewLockedResourceManager(config *rest.Config, options manager.Options, parent apis.Resource, statusChange chan<- event.GenericEvent) (LockedResourceManager, error) {
 	//diabling metrics
 	options.MetricsBindAddress = "0"
 	options.LeaderElection = false
@@ -138,8 +140,12 @@ func (lrm *LockedResourceManager) IsSameResources(resources []lockedresource.Loc
 }
 
 func (lrm *LockedResourceManager) deleteResources() error {
-	for i, resource := range lrm.GetResources() {
-		err := lrm.resourceReconcilers[i].DeleteResourceIfExists(&resource.Unstructured)
+	reconcilerBase := util.NewReconcilerBase(lrm.stoppableManager.GetClient(), lrm.stoppableManager.GetScheme(), lrm.stoppableManager.GetConfig(), lrm.stoppableManager.GetEventRecorderFor("resource-deleter"))
+	for _, resource := range lrm.GetResources() {
+		gvk := resource.Unstructured.GetObjectKind().GroupVersionKind()
+		groupVersion := schema.GroupVersion{Group: gvk.Group, Version: gvk.Version}
+		lrm.stoppableManager.GetScheme().AddKnownTypes(groupVersion, &resource.Unstructured)
+		err := reconcilerBase.DeleteResourceIfExists(&resource.Unstructured)
 		if err != nil {
 			log.Error(err, "unable to delete", "resource", resource.Unstructured)
 			return err

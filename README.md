@@ -258,6 +258,7 @@ OPERATOR_NAME='example-operator' operator-sdk --verbose run --local --watch-name
 ```shell
 oc new-project test-enforcingcrd
 oc apply -f test/enforcing_cr.yaml -n test-enforcingcrd
+oc apply -f test/failing-enforcing_cr.yaml -n test-enforcingcrd
 ```
 
 ### TemplatedEnforcingCRD controller testing
