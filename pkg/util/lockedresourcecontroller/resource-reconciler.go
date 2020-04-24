@@ -36,14 +36,15 @@ type LockedResourceReconciler struct {
 	Resource     unstructured.Unstructured
 	ExcludePaths []string
 	util.ReconcilerBase
-	status       status.Conditions
-	statusChange chan<- event.GenericEvent
-	statusLock   sync.Mutex
-	parentObject metav1.Object
+	status         status.Conditions
+	statusChange   chan<- event.GenericEvent
+	statusLock     sync.Mutex
+	parentObject   apis.Resource
+	creationFailed chan event.GenericEvent
 }
 
 // NewLockedObjectReconciler returns a new reconcile.Reconciler
-func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstructured, excludePaths []string, statusChange chan<- event.GenericEvent, parentObject metav1.Object) (*LockedResourceReconciler, error) {
+func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstructured, excludePaths []string, statusChange chan<- event.GenericEvent, parentObject apis.Resource) (*LockedResourceReconciler, error) {
 
 	reconciler := &LockedResourceReconciler{
 		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("controller_locked_object_"+apis.GetKeyLong(&object))),
@@ -52,12 +53,22 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 		statusChange:   statusChange,
 		parentObject:   parentObject,
 		statusLock:     sync.Mutex{},
+		creationFailed: make(chan event.GenericEvent),
 	}
 
 	err := reconciler.CreateOrUpdateResource(nil, "", object.DeepCopy())
 	if err != nil {
 		log.Error(err, "unable to create or update", "resource", object)
-		return &LockedResourceReconciler{}, err
+		reconciler.manageError(err)
+		log.V(1).Info("called manageError")
+		go func() {
+			reconciler.creationFailed <- event.GenericEvent{
+				Meta:   &object,
+				Object: &object,
+			}
+		}()
+
+		log.V(1).Info("sent event")
 	}
 
 	controller, err := controller.New("controller_locked_object_"+apis.GetKeyLong(&object), mgr, controller.Options{Reconciler: reconciler})
@@ -78,6 +89,14 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 	})
 	if err != nil {
 		log.Error(err, "unable to create new watch", "with source", object)
+		return &LockedResourceReconciler{}, err
+	}
+
+	err = controller.Watch(
+		&source.Channel{Source: reconciler.creationFailed},
+		&handler.EnqueueRequestForObject{},
+	)
+	if err != nil {
 		return &LockedResourceReconciler{}, err
 	}
 
@@ -103,7 +122,7 @@ func (lor *LockedResourceReconciler) Reconcile(request reconcile.Request) (recon
 			err = lor.CreateOrUpdateResource(nil, "", lor.Resource.DeepCopy())
 			if err != nil {
 				log.Error(err, "unable to create or update", "object", lor.Resource)
-				lor.manageError(err)
+				return lor.manageError(err)
 			}
 			return lor.manageSuccess()
 		}
@@ -230,7 +249,8 @@ func (lor *LockedResourceReconciler) setStatus(status status.Conditions) {
 	lor.status = status
 	if lor.statusChange != nil {
 		lor.statusChange <- event.GenericEvent{
-			Meta: lor.parentObject,
+			Meta:   lor.parentObject,
+			Object: lor.parentObject,
 		}
 	}
 }

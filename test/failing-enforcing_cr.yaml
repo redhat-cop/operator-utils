@@ -1,7 +1,7 @@
 apiVersion: example.io/v1alpha1
 kind: EnforcingCRD
 metadata:
-  name: example-enforcingcrd
+  name: example-enforcingcrd2
 spec:
   resources:
     - object: 
@@ -9,7 +9,7 @@ spec:
         kind: ConfigMap
         metadata:
           creationTimestamp: "2020-03-30T16:24:08Z"
-          name: test-configmap
+          name: test-configmap-FALING
           namespace: test-enforcingcrd
         data:
           ciao: ciao
@@ -17,7 +17,7 @@ spec:
         apiVersion: route.openshift.io/v1
         kind: Route
         metadata:
-          name: test-route
+          name: test-route-FAILING
           namespace: test-enforcingcrd
         spec:
           host: grafana-istio-system.apps.cluster-4cac.sandbox456.opentlc.com
@@ -27,4 +27,4 @@ spec:
             kind: Service
             name: grafana
             weight: 100
-          wildcardPolicy: None    
+          wildcardPolicy: None       
