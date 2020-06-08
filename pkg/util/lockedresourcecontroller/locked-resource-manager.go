@@ -3,12 +3,16 @@ package lockedresourcecontroller
 import (
 	"errors"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi"
+	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi/validation"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -61,6 +65,11 @@ func (lrm *LockedResourceManager) GetResources() []lockedresource.LockedResource
 func (lrm *LockedResourceManager) SetResources(resources []lockedresource.LockedResource) error {
 	if lrm.stoppableManager.IsStarted() {
 		return errors.New("cannot set resources while enforcing is on")
+	}
+	err := lrm.validateLockedResources(resources)
+	if err != nil {
+		log.Error(err, "unable to validate resources against running api server")
+		return err
 	}
 	lrm.resources = resources
 	return nil
@@ -160,4 +169,38 @@ func (lrm *LockedResourceManager) GetResourceReconcilers() []*LockedResourceReco
 		return lrm.resourceReconcilers
 	}
 	return []*LockedResourceReconciler{}
+}
+
+func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lockedresource.LockedResource) error {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
+	if err != nil {
+		log.Error(err, "unable to create discovery client")
+		return err
+	}
+	//lockedResourceAPIResource.
+	// validate the unstructured object is conformant to the openapi
+	doc, err := discoveryClient.OpenAPISchema()
+	if err != nil {
+		log.Error(err, "unable to get openapi schema")
+		return err
+	}
+	resources, err := openapi.NewOpenAPIData(doc)
+	if err != nil {
+		log.Error(err, "unable to get resouces from openapi doc")
+		return err
+	}
+	schemaValidation := validation.NewSchemaValidation(resources)
+	result := &multierror.Error{}
+	for _, lockedResource := range lockedResources {
+		err := util.ValidateUnstructured(&lockedResource.Unstructured, schemaValidation)
+		if err != nil {
+			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
+			multierror.Append(result, err)
+		}
+	}
+	if result.ErrorOrNil() != nil {
+		log.Error(result, "encountered errors during resources validation")
+		return result
+	}
+	return nil
 }
