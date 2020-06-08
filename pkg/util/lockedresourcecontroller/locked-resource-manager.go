@@ -192,7 +192,14 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 	schemaValidation := validation.NewSchemaValidation(resources)
 	result := &multierror.Error{}
 	for _, lockedResource := range lockedResources {
-		err := util.ValidateUnstructured(&lockedResource.Unstructured, schemaValidation)
+		log.V(1).Info("validating", "resource", lockedResource.Unstructured)
+		err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
+		if err != nil {
+			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
+			multierror.Append(result, err)
+			continue
+		}
+		err = util.ValidateUnstructured(&lockedResource.Unstructured, schemaValidation)
 		if err != nil {
 			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			multierror.Append(result, err)
