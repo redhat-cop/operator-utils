@@ -7,10 +7,10 @@ import (
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
-	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch/lockedpatchset"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource/lockedresourceset"
 	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
+	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -89,6 +89,14 @@ func (lrm *LockedResourceManager) SetResources(resources []lockedresource.Locked
 func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) error {
 	if lrm.stoppableManager.IsStarted() {
 		return errors.New("cannot set resources while enforcing is on")
+	}
+	// verifyPatchID Uniqueness
+	lockedPathMap := map[string]lockedpatch.LockedPatch{}
+	for _, lockedPatch := range patches {
+		if _, ok := lockedPathMap[lockedPatch.ID]; ok {
+			return errors.New("Duplicate patch id: " + lockedPatch.ID)
+		}
+		lockedPathMap[lockedPatch.ID] = lockedPatch
 	}
 	lrm.patches = patches
 	return nil
@@ -194,22 +202,14 @@ func (lrm *LockedResourceManager) IsSameResources(resources []lockedresource.Loc
 // intersection contains patches that are both in the current patches and the parameter
 // rightDifference contains the patches that are in the parameter but not in the current patches
 func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatch) (same bool, leftDifference []lockedpatch.LockedPatch, intersection []lockedpatch.LockedPatch, rightDifference []lockedpatch.LockedPatch) {
-	currentHashablePatchMap, currentHashablePatches, err := lockedpatch.GetHashableLockedPatchMap(lrm.GetPatches())
-	if err != nil {
-		log.Error(err, "unable to compute hashable patches")
-		return false, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}
-	}
-	newHashablePatchesMap, newHashablePatches, err := lockedpatch.GetHashableLockedPatchMap(patches)
-	if err != nil {
-		log.Error(err, "unable to compute hashable patches")
-		return false, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}
-	}
-	currentPatches := lockedpatchset.New(currentHashablePatches...)
-	newPatches := lockedpatchset.New(newHashablePatches...)
-	leftDifference = lockedpatchset.GetLockedPatchedFromLockedPatchesSet(lockedpatchset.Difference(currentPatches, newPatches), currentHashablePatchMap)
-	intersection = lockedpatchset.GetLockedPatchedFromLockedPatchesSet(lockedpatchset.Intersection(currentPatches, newPatches), currentHashablePatchMap)
-	rightDifference = lockedpatchset.GetLockedPatchedFromLockedPatchesSet(lockedpatchset.Difference(newPatches, currentPatches), newHashablePatchesMap)
-	same = currentPatches.IsEqual(newPatches)
+	currentPatchMap, currentPatches := lockedpatch.GetLockedPatchMap(lrm.GetPatches())
+	newPatchMap, newPatches := lockedpatch.GetLockedPatchMap(patches)
+	currentPatchSet := strset.New(currentPatches...)
+	newPatchSet := strset.New(newPatches...)
+	leftDifference = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Difference(currentPatchSet, newPatchSet), currentPatchMap)
+	intersection = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Intersection(currentPatchSet, newPatchSet), currentPatchMap)
+	rightDifference = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Difference(newPatchSet, currentPatchSet), newPatchMap)
+	same = currentPatchSet.IsEqual(newPatchSet)
 	return same, leftDifference, intersection, rightDifference
 }
 

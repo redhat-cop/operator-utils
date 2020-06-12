@@ -268,6 +268,13 @@ oc new-project test-templatedenforcingcrd
 oc apply -f test/templatedenforcing_cr.yaml -n test-templatedenforcingcrd
 ```
 
+### Enforcing-patch test
+
+```shell
+oc new-project test-enforcing-patch
+oc apply -f test/enforcing-patch.yaml -n test-enforcing-patch
+```
+
 ## License
 
 This project is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).

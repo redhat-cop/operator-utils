@@ -8,6 +8,9 @@ import (
 // Patch describes a patch to be enforced at runtime
 // +k8s:openapi-gen=true
 type Patch struct {
+	//ID represents a unique Identifier for this patch
+	// +kubebuilder:validation:Optional
+	ID string `json:"id"`
 	// SourceObject refs is an arrays of refereces to source objects that will be used as input for the template processing
 	// +kubebuilder:validation:Optional
 	// +listType=atomic
@@ -20,6 +23,7 @@ type Patch struct {
 	// PatchType is the type of patch to be applied, one of "application/json-patch+json"'"application/merge-patch+json","application/strategic-merge-patch+json","application/apply-patch+yaml"
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum="application/json-patch+json";"application/merge-patch+json";"application/strategic-merge-patch+json";"application/apply-patch+yaml"
+	// default:="application/strategic-merge-patch+json"
 	PatchType types.PatchType `json:"patchType,omitempty"`
 
 	// PatchTemplate is a go template that will be resolved using the SourceObjectRefs as parameters. The result must be a valid patch based on the pacth type and the target object.

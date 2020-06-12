@@ -5,12 +5,14 @@ import (
 
 	"github.com/prometheus/common/log"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/scylladb/go-set/strset"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 //LockedPatch represents a patch that needs to be enforced.
 type LockedPatch struct {
+	ID               string
 	SourceObjectRefs []corev1.ObjectReference
 	TargetObjectRef  corev1.ObjectReference
 	PatchType        types.PatchType
@@ -18,53 +20,28 @@ type LockedPatch struct {
 	Template         template.Template
 }
 
-//HashableLockedPatch a represenation of a LockedPatch that can be sued as a hash key, useful for set-based operations
-type HashableLockedPatch struct {
-	MarshalledSourceObjectRefs string
-	TargetObjectRef            corev1.ObjectReference
-	PatchType                  types.PatchType
-	PatchTemplate              string
-	Template                   template.Template
-}
-
 //GetKey returns a not so unique key for a patch
 func (lp *LockedPatch) GetKey() string {
-	return lp.TargetObjectRef.String()
+	return lp.ID
 }
 
-func (lp *LockedPatch) getHashableLockedPatch() (HashableLockedPatch, error) {
-	bb := []byte{}
-	for _, objectReference := range lp.SourceObjectRefs {
-		b, err := objectReference.Marshal()
-		if err != nil {
-			log.Error(err, "unable to marshall", "objectreference", objectReference)
-			return HashableLockedPatch{}, err
-		}
-		bb = append(bb, b...)
-	}
-	return HashableLockedPatch{
-		MarshalledSourceObjectRefs: string(bb),
-		TargetObjectRef:            lp.TargetObjectRef,
-		PatchType:                  lp.PatchType,
-		PatchTemplate:              lp.PatchTemplate,
-		Template:                   lp.Template,
-	}, nil
-}
-
-//GetHashableLockedPatchMap returns a map and a slice of HashableLockedPatch, useful for set based operations. Needed for internal implementation.
-func GetHashableLockedPatchMap(lockedPatches []LockedPatch) (map[HashableLockedPatch]LockedPatch, []HashableLockedPatch, error) {
-	hashableLockedPatchMap := map[HashableLockedPatch]LockedPatch{}
-	hashableLockedPatches := []HashableLockedPatch{}
+//GetLockedPatchMap returns a map and a slice of LockedPatch, useful for set based operations. Needed for internal implementation.
+func GetLockedPatchMap(lockedPatches []LockedPatch) (map[string]LockedPatch, []string) {
+	lockedPatchMap := map[string]LockedPatch{}
+	lockedPatcheIDs := []string{}
 	for _, lockedPatch := range lockedPatches {
-		hashableLockedPatch, err := lockedPatch.getHashableLockedPatch()
-		if err != nil {
-			log.Error(err, "unable to get HAshableLockedPathc from", "LockedPatch", lockedPatch)
-			return map[HashableLockedPatch]LockedPatch{}, []HashableLockedPatch{}, err
-		}
-		hashableLockedPatchMap[hashableLockedPatch] = lockedPatch
-		hashableLockedPatches = append(hashableLockedPatches, hashableLockedPatch)
+		lockedPatchMap[lockedPatch.ID] = lockedPatch
+		lockedPatcheIDs = append(lockedPatcheIDs, lockedPatch.ID)
 	}
-	return hashableLockedPatchMap, hashableLockedPatches, nil
+	return lockedPatchMap, lockedPatcheIDs
+}
+
+func GetLockedPatchedFromLockedPatchesSet(lockedPatchSet *strset.Set, lockedPatchMap map[string]LockedPatch) []LockedPatch {
+	lockedPatches := []LockedPatch{}
+	for _, lockedPatchID := range lockedPatchSet.List() {
+		lockedPatches = append(lockedPatches, lockedPatchMap[lockedPatchID])
+	}
+	return lockedPatches
 }
 
 //GetLockedPatches retunrs a slice of LockedPatches from a slicd of apis.Patches
@@ -82,6 +59,7 @@ func GetLockedPatches(patches []apis.Patch) ([]LockedPatch, error) {
 			PatchType:        patch.PatchType,
 			TargetObjectRef:  patch.TargetObjectRef,
 			Template:         *template,
+			ID:               patch.ID,
 		})
 	}
 	return lockedPatches, nil

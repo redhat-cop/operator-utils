@@ -110,6 +110,15 @@ func (r *ReconcileEnforcingPatch) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
+	if ok := r.IsInitialized(instance); !ok {
+		err := r.GetClient().Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, "unable to update instance", "instance", instance)
+			return r.ManageError(instance, err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	lockedPatches, err := lockedpatch.GetLockedPatches(instance.Spec.Patches)
 	if err != nil {
 		log.Error(err, "unable to get locked patches")
@@ -122,4 +131,18 @@ func (r *ReconcileEnforcingPatch) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	return r.ManageSuccess(instance)
+}
+
+// IsInitialized can be used to check if isntance is correctlty initialuzed.
+// returns false it it's not.
+func (r *ReconcileEnforcingPatch) IsInitialized(instance *enforcingpatchv1alpha1.EnforcingPatch) bool {
+	needsUpdate := true
+	for i := range instance.Spec.Patches {
+
+		if instance.Spec.Patches[i].PatchType == "" {
+			instance.Spec.Patches[i].PatchType = "application/strategic-merge-patch+json"
+			needsUpdate = false
+		}
+	}
+	return needsUpdate
 }
