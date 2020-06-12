@@ -98,6 +98,11 @@ func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) 
 		}
 		lockedPathMap[lockedPatch.ID] = lockedPatch
 	}
+	err := lrm.validateLockedPatches(patches)
+	if err != nil {
+		log.Error(err, "unable to validate patches against running api server")
+		return err
+	}
 	lrm.patches = patches
 	return nil
 }
@@ -236,7 +241,6 @@ func (lrm *LockedResourceManager) GetResourceReconcilers() []*LockedResourceReco
 	return []*LockedResourceReconciler{}
 }
 
-
 func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lockedresource.LockedResource) error {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
 	if err != nil {
@@ -259,10 +263,14 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 	result := &multierror.Error{}
 	for _, lockedResource := range lockedResources {
 		log.V(1).Info("validating", "resource", lockedResource.Unstructured)
-		err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
+		defined, err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
 		if err != nil {
 			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			multierror.Append(result, err)
+			continue
+		}
+		if !defined {
+			multierror.Append(result, errors.New("resource type:"+lockedResource.Unstructured.GroupVersionKind().String()+"not defined"))
 			continue
 		}
 		err = util.ValidateUnstructured(&lockedResource.Unstructured, schemaValidation)
@@ -276,6 +284,7 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 		return result
 	}
 	return nil
+}
 
 //GetPatchReconcilers return the currently active patch reconcilers
 func (lrm *LockedResourceManager) GetPatchReconcilers() []*LockedPatchReconciler {
@@ -283,5 +292,34 @@ func (lrm *LockedResourceManager) GetPatchReconcilers() []*LockedPatchReconciler
 		return lrm.patchReconcilers
 	}
 	return []*LockedPatchReconciler{}
+}
 
+func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.LockedPatch) error {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
+	if err != nil {
+		log.Error(err, "unable to create discovery client")
+		return err
+	}
+	result := &multierror.Error{}
+	for _, lockedPatch := range patches {
+		objrefs := append(lockedPatch.SourceObjectRefs, lockedPatch.TargetObjectRef)
+		for _, objref := range objrefs {
+			log.V(1).Info("validating", "objref", objref)
+			defined, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
+			if err != nil {
+				log.Error(err, "unable to validate", "objectref", objref)
+				multierror.Append(result, err)
+				continue
+			}
+			if !defined {
+				multierror.Append(result, errors.New("resource type:"+objref.GroupVersionKind().String()+"not defined"))
+				continue
+			}
+		}
+	}
+	if result.ErrorOrNil() != nil {
+		log.Error(result, "encountered errors during patch validation")
+		return result
+	}
+	return nil
 }

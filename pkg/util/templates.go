@@ -19,11 +19,11 @@ package util
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi/validation"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -97,19 +97,21 @@ func ValidateUnstructured(obj *unstructured.Unstructured, validationSchema *vali
 }
 
 //IsUnstructuredDefined checks whether the content of a unstructured is defined against the passed DiscoveryClient
-func IsUnstructuredDefined(obj *unstructured.Unstructured, discoveryClient *discovery.DiscoveryClient) error {
+func IsUnstructuredDefined(obj *unstructured.Unstructured, discoveryClient *discovery.DiscoveryClient) (bool, error) {
 	gvk := obj.GroupVersionKind()
+	return IsGVKDefined(gvk, discoveryClient)
+}
+
+func IsGVKDefined(gvk schema.GroupVersionKind, discoveryClient *discovery.DiscoveryClient) (bool, error) {
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {
 		log.Error(err, "unable to find resources for", "gvk", gvk)
-		return err
+		return false, err
 	}
 	for _, resource := range resources.APIResources {
 		if resource.Kind == gvk.Kind {
-			return nil
+			return true, nil
 		}
 	}
-	err = errors.New("unable to find resource kind")
-	log.Error(err, "unable to find resource for ", "kind", gvk.Kind)
-	return err
+	return false, nil
 }
