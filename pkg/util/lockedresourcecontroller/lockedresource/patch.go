@@ -1,4 +1,4 @@
-package lockedresourcecontroller
+package lockedresource
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func filterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstructured.Unstructured, error) {
+func FilterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstructured.Unstructured, error) {
 	doc, err := obj.MarshalJSON()
 	if err != nil {
 		log.Error(err, "unable to marshall", "unstructured", obj)

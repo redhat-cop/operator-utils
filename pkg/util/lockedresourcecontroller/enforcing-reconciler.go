@@ -8,6 +8,7 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,15 +72,16 @@ func (er *EnforcingReconciler) getLockedResourceManager(instance apis.Resource) 
 // 2. compare the currently enfrced resources with the one passed as parameters and then
 //    a. return immediately if they are the same
 //    b. restart the LockedResourceManager if they don't match
-func (er *EnforcingReconciler) UpdateLockedResources(instance apis.Resource, lockedResources []lockedresource.LockedResource) error {
+func (er *EnforcingReconciler) UpdateLockedResources(instance apis.Resource, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch) error {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
 		log.Error(err, "unable to get LockedResourceManager")
 		return err
 	}
-	same, leftDifference, _, _ := lockedResourceManager.IsSameResources(lockedResources)
-	if !same {
-		lockedResourceManager.Restart(lockedResources, false)
+	sameResources, leftDifference, _, _ := lockedResourceManager.IsSameResources(lockedResources)
+	samePatches, _, _, _ := lockedResourceManager.IsSamePatches(lockedPatches)
+	if !sameResources || !samePatches {
+		lockedResourceManager.Restart(lockedResources, lockedPatches, false)
 		err := er.DeleteUnstructuredResources(lockedresource.AsListOfUnstructured(leftDifference))
 		if err != nil {
 			log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
@@ -129,6 +131,7 @@ func (er *EnforcingReconciler) ManageSuccess(instance apis.Resource) (reconcile.
 		status := apis.EnforcingReconcileStatus{
 			Conditions:             status.NewConditions(condition),
 			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
+			LockedPatchStatuses:    er.GetLockedPatchStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
 		err := er.GetClient().Status().Update(context.Background(), instance)
@@ -154,6 +157,20 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(instance apis.Resource)
 		lockedResourceReconcileStatuses[apis.GetKeyLong(&lockedResourceReconciler.Resource)] = lockedResourceReconciler.GetStatus()
 	}
 	return lockedResourceReconcileStatuses
+}
+
+// GetLockedPatchStatuses returns the status for all LockedPatches
+func (er *EnforcingReconciler) GetLockedPatchStatuses(instance apis.Resource) map[string]status.Conditions {
+	lockedResourceManager, err := er.getLockedResourceManager(instance)
+	if err != nil {
+		log.Error(err, "unable to get locked resource manager for", "parent", instance)
+		return map[string]status.Conditions{}
+	}
+	lockedPatchReconcileStatuses := map[string]status.Conditions{}
+	for _, lockedPatchReconciler := range lockedResourceManager.GetPatchReconcilers() {
+		lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()] = lockedPatchReconciler.GetStatus()
+	}
+	return lockedPatchReconcileStatuses
 }
 
 // Terminate will stop the execution for the current istance. It will also optionally delete the locked resources.

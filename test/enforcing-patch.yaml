@@ -1,0 +1,27 @@
+apiVersion: example.io/v1alpha1
+kind: EnforcingPatch
+metadata:
+  name: test-field-patch
+spec:
+  patches:
+  - id: ciao1
+    targetObjectRef:
+      apiVersion: v1
+      kind: ServiceAccount
+      name: test
+      namespace: test-enforcing-patch
+    patchTemplate: |
+      metadata:
+        annotations:
+          {{ (index . 0) }}: {{ (index . 1) }}
+    patchType: application/strategic-merge-patch+json
+    sourceObjectRefs:
+    - apiVersion: v1
+      kind: Namespace
+      name: default
+      fieldPath: $.metadata.uid
+    - apiVersion: v1
+      kind: ServiceAccount
+      name: default
+      namespace: default
+      fieldPath: $.metadata.uid  

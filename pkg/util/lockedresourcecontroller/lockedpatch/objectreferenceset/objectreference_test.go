@@ -2,7 +2,7 @@
 // Use of this source code is governed by a ALv2-style
 // license that can be found at https://github.com/scylladb/go-set/LICENSE.
 
-package lockedresource
+package objectreferenceset
 
 import (
 	"fmt"
@@ -12,16 +12,18 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestAdd(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -35,13 +37,13 @@ func TestAdd(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -55,25 +57,25 @@ func TestRemove(t *testing.T) {
 		t.Errorf("expected 1 entries, got %d", len(s.m))
 	}
 
-	if _, ok := s.m[e2.GetKey()]; !ok {
+	if _, ok := s.m[e2]; !ok {
 		t.Errorf("wrong entry %v removed, expected %v", e1, e2)
 	}
 }
 
 func TestPop(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
 	s := New()
 	popped := s.Pop()
-	if !reflect.DeepEqual(popped, nonExistent) {
+	if popped != nonExistent {
 		t.Errorf("default non existent sentinel not returned, instead got %v", popped)
 	}
 
@@ -88,19 +90,19 @@ func TestPop(t *testing.T) {
 }
 
 func TestPop2(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
 	s := New()
 	popped, found := s.Pop2()
-	if !reflect.DeepEqual(popped, nonExistent) {
+	if popped != nonExistent {
 		t.Errorf("default non existent sentinel not returned, instead got %v", popped)
 	}
 	if found {
@@ -121,17 +123,17 @@ func TestPop2(t *testing.T) {
 }
 
 func TestHas(t *testing.T) {
-	var e1, e2, e3 LockedResource
+	var e1, e2, e3 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e3 = v
 	}
 
@@ -155,17 +157,17 @@ func TestHas(t *testing.T) {
 }
 
 func TestHasAny(t *testing.T) {
-	var e1, e2, e3 LockedResource
+	var e1, e2, e3 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e3 = v
 	}
 
@@ -192,13 +194,13 @@ func TestHasAny(t *testing.T) {
 }
 
 func TestSize(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -212,13 +214,13 @@ func TestSize(t *testing.T) {
 }
 
 func TestClear(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -234,13 +236,13 @@ func TestClear(t *testing.T) {
 }
 
 func TestIsEmpty(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -258,13 +260,13 @@ func TestIsEmpty(t *testing.T) {
 }
 
 func TestIsEqual(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -288,17 +290,17 @@ func TestIsEqual(t *testing.T) {
 }
 
 func TestIsSubset(t *testing.T) {
-	var e1, e2, e3 LockedResource
+	var e1, e2, e3 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e3 = v
 	}
 
@@ -321,13 +323,13 @@ func TestIsSubset(t *testing.T) {
 }
 
 func TestIsSuperset(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -344,13 +346,13 @@ func TestIsSuperset(t *testing.T) {
 }
 
 func TestCopy(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -367,9 +369,9 @@ func TestCopy(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	var e1 LockedResource
+	var e1 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 
@@ -389,13 +391,13 @@ func TestString(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -413,13 +415,13 @@ func TestMerge(t *testing.T) {
 }
 
 func TestList(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -442,13 +444,13 @@ func TestList(t *testing.T) {
 }
 
 func TestSeparate(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -472,13 +474,13 @@ func TestSeparate(t *testing.T) {
 }
 
 func TestEach(t *testing.T) {
-	var e1, e2 LockedResource
+	var e1, e2 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 
@@ -486,10 +488,10 @@ func TestEach(t *testing.T) {
 	s1.Add(e1)
 	s1.Add(e2)
 
-	found := make(map[string]bool)
+	found := make(map[corev1.ObjectReference]bool)
 
-	s1.Each(func(item LockedResource) bool {
-		found[item.GetKey()] = true
+	s1.Each(func(item corev1.ObjectReference) bool {
+		found[item] = true
 		return true
 	})
 
@@ -497,10 +499,10 @@ func TestEach(t *testing.T) {
 		t.Errorf("not all items traversed only %v", found)
 	}
 
-	found = make(map[string]bool)
+	found = make(map[corev1.ObjectReference]bool)
 	count := 0
-	s1.Each(func(item LockedResource) bool {
-		found[item.GetKey()] = true
+	s1.Each(func(item corev1.ObjectReference) bool {
+		found[item] = true
 		count++
 		if count > 0 {
 			return false
@@ -514,17 +516,17 @@ func TestEach(t *testing.T) {
 }
 
 func TestIntersection(t *testing.T) {
-	var e1, e2, e3 LockedResource
+	var e1, e2, e3 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 	e = createRandomObject(e3)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e3 = v
 	}
 
@@ -544,17 +546,17 @@ func TestIntersection(t *testing.T) {
 }
 
 func TestUnion(t *testing.T) {
-	var e1, e2, e3 LockedResource
+	var e1, e2, e3 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 	e = createRandomObject(e3)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e3 = v
 	}
 
@@ -574,17 +576,17 @@ func TestUnion(t *testing.T) {
 }
 
 func TestDifference(t *testing.T) {
-	var e1, e2, e3 LockedResource
+	var e1, e2, e3 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 	e = createRandomObject(e3)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e3 = v
 	}
 
@@ -604,17 +606,17 @@ func TestDifference(t *testing.T) {
 }
 
 func TestSymmetricDifference(t *testing.T) {
-	var e1, e2, e3 LockedResource
+	var e1, e2, e3 corev1.ObjectReference
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e1 = v
 	}
 	e = createRandomObject(e2)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e2 = v
 	}
 	e = createRandomObject(e3)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(corev1.ObjectReference); ok {
 		e3 = v
 	}
 

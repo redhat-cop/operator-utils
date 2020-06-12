@@ -196,7 +196,7 @@ initialization...
 (optional) finalization...
 Phase1 ... calculate a set of resources to be enforced -> LockedResources
 
-  err = r.UpdateLockedResources(instance, lockedResources)
+  err = r.UpdateLockedResources(instance, lockedResources, ...)
   if err != nil {
     log.Error(err, "unable to update locked resources")
     return r.ManageError(instance, err)
@@ -229,6 +229,47 @@ func (r *ReconcileEnforcingCRD) manageCleanUpLogic(instance *examplev1alpha1.Enf
 ```
 
 Convenience methods are also available for when resources are templated. See the [templatedenforcingcrd](./pkgcontroller/templatedenforcingcrd/templatedenforcingcrd_controller.go) controller as an example.
+
+## Support for operators that need to enforce a set of patches
+
+For similar reasons stated in the previous paragraphs, operators might need to enforce patches.
+A patch modifies an object created by another entity. Because this operator does not own that object a path must be enforced upon changes made on the target objects.
+One must be carful not to create circular situation where an operator deletes the patch and this operator recreates the patches.
+In some situations a patch must be parametric on some state of the cluster. For this reason it's possible to monitor source objects that will be used as a parameters to calculate the patch.
+
+A patch is defined as follows:
+
+```golang
+type LockedPatch struct {
+  ID               string
+  SourceObjectRefs []corev1.ObjectReference
+  TargetObjectRef  corev1.ObjectReference
+  PatchType        types.PatchType
+  PatchTemplate    string
+  Template         template.Template
+}
+```
+
+the target object refs and source object refs are watched for changes by the reconciler.
+The relevant part of the operator code would lok like this:
+
+```golang
+validation...
+initialization...
+Phase1 ... calculate a set of patches to be enforced -> LockedPatches
+
+  err = r.UpdateLockedResources(instance, ..., lockedPatches)
+  if err != nil {
+    log.Error(err, "unable to update locked resources")
+    return r.ManageError(instance, err)
+ }
+
+  return r.ManageSuccess(instance)
+```
+
+Patches cannot be undone so there is no need to manage a finalizer.
+
+[Here](./pkg/controller/enforcingpatch/enforcingpatch_controller.go) you can find an example of how to implement an operator with this the ability to enforce patches.
 
 ## Local Development
 
@@ -266,6 +307,13 @@ oc apply -f test/failing-enforcing_cr.yaml -n test-enforcingcrd
 ```shell
 oc new-project test-templatedenforcingcrd
 oc apply -f test/templatedenforcing_cr.yaml -n test-templatedenforcingcrd
+```
+
+### Enforcing-patch test
+
+```shell
+oc new-project test-enforcing-patch
+oc apply -f test/enforcing-patch.yaml -n test-enforcing-patch
 ```
 
 ## License
