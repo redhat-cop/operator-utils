@@ -1,0 +1,644 @@
+// Copyright (C) 2017 ScyllaDB
+// Use of this source code is governed by a ALv2-style
+// license that can be found at https://github.com/scylladb/go-set/LICENSE.
+
+package objectreferenceset
+
+import (
+	"fmt"
+	"math/rand"
+	"reflect"
+	"strings"
+	"testing"
+	"testing/quick"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
+)
+
+func TestAdd(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+	s.Add(e1)
+	s.Add(e2)
+
+	if len(s.m) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(s.m))
+	}
+}
+
+func TestRemove(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+	s.Add(e1)
+	s.Add(e2)
+
+	s.Remove(e1)
+
+	if len(s.m) != 1 {
+		t.Errorf("expected 1 entries, got %d", len(s.m))
+	}
+
+	if _, ok := s.m[e2]; !ok {
+		t.Errorf("wrong entry %v removed, expected %v", e1, e2)
+	}
+}
+
+func TestPop(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+	popped := s.Pop()
+	if popped != nonExistent {
+		t.Errorf("default non existent sentinel not returned, instead got %v", popped)
+	}
+
+	s.Add(e1)
+	s.Add(e2)
+
+	s.Pop()
+
+	if len(s.m) != 1 {
+		t.Errorf("expected 1 entries, got %d", len(s.m))
+	}
+}
+
+func TestPop2(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+	popped, found := s.Pop2()
+	if popped != nonExistent {
+		t.Errorf("default non existent sentinel not returned, instead got %v", popped)
+	}
+	if found {
+		t.Errorf("set is empty, no element should have been found")
+	}
+
+	s.Add(e1)
+	s.Add(e2)
+
+	_, found = s.Pop2()
+
+	if len(s.m) != 1 {
+		t.Errorf("expected 1 entries, got %d", len(s.m))
+	}
+	if !found {
+		t.Errorf("expected to find an entry")
+	}
+}
+
+func TestHas(t *testing.T) {
+	var e1, e2, e3 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e3 = v
+	}
+
+	s := New()
+	if s.Has(e1) {
+		t.Errorf("expected a new set to not contain %v", e1)
+	}
+
+	s.Add(e1)
+	s.Add(e2)
+
+	if !s.Has(e1) {
+		t.Errorf("expected the set to contain %v", e1)
+	}
+	if !s.Has(e2) {
+		t.Errorf("expected the set to contain %v", e2)
+	}
+	if s.Has(e3) {
+		t.Errorf("did not expect the set to contain %v", e3)
+	}
+}
+
+func TestHasAny(t *testing.T) {
+	var e1, e2, e3 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e3 = v
+	}
+
+	s := New()
+	if s.Has(e1) {
+		t.Errorf("expected a new set to not contain %v", e1)
+	}
+
+	s.Add(e1)
+	s.Add(e2)
+
+	if !s.HasAny(e1) {
+		t.Errorf("expected the set to contain %v", e1)
+	}
+	if !s.HasAny(e2) {
+		t.Errorf("expected the set to contain %v", e2)
+	}
+	if s.HasAny(e3) {
+		t.Errorf("did not expect the set to contain %v", e3)
+	}
+	if !s.HasAny(e1, e3) {
+		t.Errorf("expected the set to contain %v", e1)
+	}
+}
+
+func TestSize(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+	s.Add(e1)
+	s.Add(e2)
+
+	if s.Size() != 2 {
+		t.Errorf("expected the set size to be 2 but it was %d", s.Size())
+	}
+}
+
+func TestClear(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+	s.Add(e1)
+	s.Add(e2)
+
+	s.Clear()
+
+	if s.Size() != 0 {
+		t.Errorf("expected the cleared set size to be 0 but it was %d", s.Size())
+	}
+}
+
+func TestIsEmpty(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+	if !s.IsEmpty() {
+		t.Errorf("expected new set to be empty but it had %d elements", s.Size())
+	}
+
+	s.Add(e1)
+	s.Add(e2)
+
+	if s.IsEmpty() {
+		t.Error("expected a set with added items to not be empty")
+	}
+}
+
+func TestIsEqual(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s1 := New()
+	s2 := New()
+	if !s1.IsEqual(s2) {
+		t.Error("expected 2 new sets to be equal")
+	}
+
+	s1.Add(e1)
+	s1.Add(e2)
+	if s1.IsEqual(s2) {
+		t.Errorf("expected 2 different sets to be equal, %v, %v", s1, s2)
+	}
+	s2.Add(e1)
+	s2.Add(e2)
+
+	if !s1.IsEqual(s2) {
+		t.Error("expected 2 sets with the same items added to be equal")
+	}
+}
+
+func TestIsSubset(t *testing.T) {
+	var e1, e2, e3 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e3 = v
+	}
+
+	s1 := New()
+	s2 := New()
+
+	s1.Add(e1)
+	s1.Add(e2)
+	s2.Add(e1)
+
+	if !s1.IsSubset(s2) {
+		t.Errorf("expected %v to be a subset of %v", s2, s1)
+	}
+
+	s2.Add(e2)
+	s2.Add(e3)
+	if s1.IsSubset(s2) {
+		t.Errorf("expected %v not to be a subset of %v", s2, s1)
+	}
+}
+
+func TestIsSuperset(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s1 := New()
+	s2 := New()
+
+	s1.Add(e1)
+	s1.Add(e2)
+	s2.Add(e1)
+
+	if !s2.IsSuperset(s1) {
+		t.Errorf("expected %v to be a super set of %v", s1, s2)
+	}
+}
+
+func TestCopy(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s1 := New()
+
+	s1.Add(e1)
+	s1.Add(e2)
+
+	s2 := s1.Copy()
+
+	if !s2.IsEqual(s1) {
+		t.Errorf("expected %v to be equal to %v after copy", s1, s2)
+	}
+}
+
+func TestString(t *testing.T) {
+	var e1 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+
+	s1 := New()
+
+	s1.Add(e1)
+
+	s := s1.String()
+
+	if s == "" {
+		t.Errorf("expected string representation %v to exist", s)
+	}
+
+	if !strings.HasPrefix(s, "[") && !strings.HasSuffix(s, "]") {
+		t.Errorf("expected string representation %v to start with '[' and end with ']'", s)
+	}
+}
+
+func TestMerge(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s1 := New()
+	s2 := New()
+
+	s1.Add(e1)
+	s2.Add(e2)
+
+	s1.Merge(s2)
+
+	if s1.Size() != 2 {
+		t.Errorf("expected merged set %v have size 2 but it has %d", s1, s1.Size())
+	}
+}
+
+func TestList(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s := New()
+
+	s.Add(e1)
+	s.Add(e2)
+
+	l := s.List()
+
+	if len(l) != s.Size() {
+		t.Errorf("expected a set of size %d to give a list of size 2 but it has %d", s.Size(), len(l))
+	}
+
+	for _, e := range l {
+		if !s.Has(e) {
+			t.Errorf("listed entry %v not available in the set %s", e, s)
+		}
+	}
+}
+
+func TestSeparate(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s1 := New()
+	s2 := New()
+
+	s1.Add(e1)
+	s1.Add(e2)
+
+	s2.Add(e2)
+
+	s1.Separate(s2)
+
+	if s1.Size() != 1 {
+		t.Errorf("expected separated set %v have size 1 but it has %d", s1, s1.Size())
+	}
+
+	if s1.Has(e2) {
+		t.Errorf("separated set %v still contains %v", s1, e2)
+	}
+}
+
+func TestEach(t *testing.T) {
+	var e1, e2 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+
+	s1 := New()
+	s1.Add(e1)
+	s1.Add(e2)
+
+	found := make(map[corev1.ObjectReference]bool)
+
+	s1.Each(func(item corev1.ObjectReference) bool {
+		found[item] = true
+		return true
+	})
+
+	if len(found) != 2 {
+		t.Errorf("not all items traversed only %v", found)
+	}
+
+	found = make(map[corev1.ObjectReference]bool)
+	count := 0
+	s1.Each(func(item corev1.ObjectReference) bool {
+		found[item] = true
+		count++
+		if count > 0 {
+			return false
+		}
+		return true
+	})
+
+	if len(found) != 1 {
+		t.Errorf("more than expected 1 items traversed %v", found)
+	}
+}
+
+func TestIntersection(t *testing.T) {
+	var e1, e2, e3 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+	e = createRandomObject(e3)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e3 = v
+	}
+
+	s1 := New()
+	s1.Add(e1)
+	s1.Add(e2)
+
+	s2 := New()
+	s2.Add(e2)
+	s2.Add(e3)
+
+	s3 := Intersection(s1, s2)
+
+	if s3.Size() != 1 || !s3.Has(e2) {
+		t.Errorf("expected the intersection to only contain '%v' but it is %v", e2, s3.List())
+	}
+}
+
+func TestUnion(t *testing.T) {
+	var e1, e2, e3 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+	e = createRandomObject(e3)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e3 = v
+	}
+
+	s1 := New()
+	s1.Add(e1)
+	s1.Add(e2)
+
+	s2 := New()
+	s2.Add(e2)
+	s2.Add(e3)
+
+	s3 := Union(s1, s2)
+
+	if s3.Size() != 3 || !(s3.Has(e1) && s3.Has(e2) && s3.Has(e3)) {
+		t.Errorf("expected the intersection to only contain %v but it is %v", e2, s3.List())
+	}
+}
+
+func TestDifference(t *testing.T) {
+	var e1, e2, e3 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+	e = createRandomObject(e3)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e3 = v
+	}
+
+	s1 := New()
+	s1.Add(e1)
+	s1.Add(e2)
+
+	s2 := New()
+	s2.Add(e2)
+	s2.Add(e3)
+
+	s3 := Difference(s1, s2)
+
+	if s3.Size() != 1 || !s3.Has(e1) {
+		t.Errorf("expected the intersection to only contain %v but it is %v", e2, s3.List())
+	}
+}
+
+func TestSymmetricDifference(t *testing.T) {
+	var e1, e2, e3 corev1.ObjectReference
+	e := createRandomObject(e1)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e1 = v
+	}
+	e = createRandomObject(e2)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e2 = v
+	}
+	e = createRandomObject(e3)
+	if v, ok := e.(corev1.ObjectReference); ok {
+		e3 = v
+	}
+
+	s1 := New()
+	s1.Add(e1)
+	s1.Add(e2)
+
+	s2 := New()
+	s2.Add(e2)
+	s2.Add(e3)
+
+	s3 := SymmetricDifference(s1, s2)
+
+	if s3.Size() != 2 || !(s3.Has(e1) && s3.Has(e3)) {
+		t.Errorf("expected the intersection to only contain %v but it is %v", e2, s3.List())
+	}
+}
+
+func createRandomObject(i interface{}) interface{} {
+	v, ok := quick.Value(reflect.TypeOf(i), rand.New(rand.NewSource(time.Now().UnixNano())))
+	if !ok {
+		panic(fmt.Sprintf("unsupported type %v", i))
+	}
+	return v.Interface()
+}

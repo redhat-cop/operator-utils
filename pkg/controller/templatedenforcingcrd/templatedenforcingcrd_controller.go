@@ -7,6 +7,7 @@ import (
 	examplev1alpha1 "github.com/redhat-cop/operator-utils/pkg/apis/example/v1alpha1"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller"
+	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/scylladb/go-set/strset"
 	corev1 "k8s.io/api/core/v1"
@@ -154,7 +155,7 @@ func (r *ReconcileTemplatedEnforcingCRD) Reconcile(request reconcile.Request) (r
 		log.Error(err, "unable to get locked resources")
 		return r.ManageError(instance, err)
 	}
-	err = r.UpdateLockedResources(instance, lockedResources)
+	err = r.UpdateLockedResources(instance, lockedResources, []lockedpatch.LockedPatch{})
 	if err != nil {
 		log.Error(err, "unable to update locked resources")
 		return r.ManageError(instance, err)

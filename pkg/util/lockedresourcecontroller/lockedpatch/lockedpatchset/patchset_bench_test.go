@@ -2,19 +2,20 @@
 // Use of this source code is governed by a ALv2-style
 // license that can be found at https://github.com/scylladb/go-set/LICENSE.
 
-package lockedresource
+package lockedpatchset
 
 import (
 	"testing"
 
 	"github.com/fatih/set"
+	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 )
 
 func BenchmarkTypeSafeSetHasNonExisting(b *testing.B) {
 	b.StopTimer()
-	var e1 LockedResource
+	var e1 lockedpatch.HashableLockedPatch
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 		e1 = v
 	}
 	b.StartTimer()
@@ -26,9 +27,9 @@ func BenchmarkTypeSafeSetHasNonExisting(b *testing.B) {
 
 func BenchmarkInterfaceSetHasNonExisting(b *testing.B) {
 	b.StopTimer()
-	var e1 LockedResource
+	var e1 lockedpatch.HashableLockedPatch
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 		e1 = v
 	}
 	b.StartTimer()
@@ -40,9 +41,9 @@ func BenchmarkInterfaceSetHasNonExisting(b *testing.B) {
 
 func BenchmarkTypeSafeSetHasExisting(b *testing.B) {
 	b.StopTimer()
-	var e1 LockedResource
+	var e1 lockedpatch.HashableLockedPatch
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 		e1 = v
 	}
 	b.StartTimer()
@@ -55,9 +56,9 @@ func BenchmarkTypeSafeSetHasExisting(b *testing.B) {
 
 func BenchmarkInterfaceSetHasExisting(b *testing.B) {
 	b.StopTimer()
-	var e1 LockedResource
+	var e1 lockedpatch.HashableLockedPatch
 	e := createRandomObject(e1)
-	if v, ok := e.(LockedResource); ok {
+	if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 		e1 = v
 	}
 	b.StartTimer()
@@ -71,10 +72,10 @@ func BenchmarkInterfaceSetHasExisting(b *testing.B) {
 func BenchmarkTypeSafeSetHasExistingMany(b *testing.B) {
 	s := New()
 	b.StopTimer()
-	var e1 LockedResource
+	var e1 lockedpatch.HashableLockedPatch
 	for i := 0; i < 10000; i++ {
 		e := createRandomObject(e1)
-		if v, ok := e.(LockedResource); ok {
+		if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 			s.Add(v)
 			if i == 5000 {
 				e1 = v
@@ -90,10 +91,10 @@ func BenchmarkTypeSafeSetHasExistingMany(b *testing.B) {
 func BenchmarkInterfaceSetHasExistingMany(b *testing.B) {
 	s := set.New(set.NonThreadSafe)
 	b.StopTimer()
-	var e1 LockedResource
+	var e1 lockedpatch.HashableLockedPatch
 	for i := 0; i < 10000; i++ {
 		e := createRandomObject(e1)
-		if v, ok := e.(LockedResource); ok {
+		if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 			s.Add(v)
 			if i == 5000 {
 				e1 = v
@@ -108,12 +109,12 @@ func BenchmarkInterfaceSetHasExistingMany(b *testing.B) {
 
 func BenchmarkTypeSafeSetAdd(b *testing.B) {
 	b.StopTimer()
-	var e LockedResource
+	var e lockedpatch.HashableLockedPatch
 	s := New()
-	objs := make([]LockedResource, 0, b.N)
+	objs := make([]lockedpatch.HashableLockedPatch, 0, b.N)
 	for i := 0; i < b.N; i++ {
 		e := createRandomObject(e)
-		if v, ok := e.(LockedResource); ok {
+		if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 			objs = append(objs, v)
 		}
 	}
@@ -125,12 +126,12 @@ func BenchmarkTypeSafeSetAdd(b *testing.B) {
 
 func BenchmarkInterfaceSetAdd(b *testing.B) {
 	b.StopTimer()
-	var e LockedResource
+	var e lockedpatch.HashableLockedPatch
 	s := set.New(set.NonThreadSafe)
-	objs := make([]LockedResource, 0, b.N)
+	objs := make([]lockedpatch.HashableLockedPatch, 0, b.N)
 	for i := 0; i < b.N; i++ {
 		e := createRandomObject(e)
-		if v, ok := e.(LockedResource); ok {
+		if v, ok := e.(lockedpatch.HashableLockedPatch); ok {
 			objs = append(objs, v)
 		}
 	}

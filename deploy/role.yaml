@@ -45,6 +45,7 @@ rules:
   resources:
   - '*'
   - templatedenforcingcrds
+  - enforcingpatches
   verbs:
   - '*'
 - apiGroups:
@@ -52,6 +53,19 @@ rules:
   resources:
   - '*'
   - enforcingcrds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - enforcingpatch.example.io
+  resources:
+  - '*'
+  - enforcingpatches
   verbs:
   - create
   - delete

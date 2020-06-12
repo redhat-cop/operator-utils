@@ -1,21 +1,20 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: templatedenforcingcrds.example.io
+  name: enforcingpatches.example.io
 spec:
   group: example.io
   names:
-    kind: TemplatedEnforcingCRD
-    listKind: TemplatedEnforcingCRDList
-    plural: templatedenforcingcrds
-    singular: templatedenforcingcrd
+    kind: EnforcingPatch
+    listKind: EnforcingPatchList
+    plural: enforcingpatches
+    singular: enforcingpatch
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: TemplatedEnforcingCRD is the Schema for the templatedenforcingcrds
-        API
+      description: EnforcingPatch is the Schema for the enforcingpatches API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -30,37 +29,117 @@ spec:
         metadata:
           type: object
         spec:
-          description: TemplatedEnforcingCRDSpec defines the desired state of TemplatedEnforcingCRD
+          description: EnforcingPatchSpec defines the desired state of EnforcingPatch
           properties:
-            templates:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "operator-sdk generate k8s" to regenerate code after
-                modifying this file Add custom validation using kubebuilder tags:
-                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+            patches:
+              description: Patches is a list of pacthes that should be encforced at
+                runtime.
               items:
-                description: LockedResourceTemplate represents a resource template
-                  in go language to be enforced in a LockedResourceController and
-                  can be used in a API specification
+                description: Patch describes a patch to be enforced at runtime
                 properties:
-                  excludedPaths:
-                    description: ExludedPaths are a set of json paths that need not
-                      be considered by the LockedResourceReconciler
-                    items:
-                      type: string
-                    type: array
-                    x-kubernetes-list-type: set
-                  objectTemplate:
-                    description: ObjectTemplate is a goland template. Whne processed,
-                      it must resolve to a yaml representation of an API resource
+                  patchTemplate:
+                    description: PatchTemplate is a go template that will be resolved
+                      using the SourceObjectRefs as parameters. The result must be
+                      a valid patch based on the pacth type and the target object.
                     type: string
+                  patchType:
+                    description: PatchType is the type of patch to be applied, one
+                      of "application/json-patch+json"'"application/merge-patch+json","application/strategic-merge-patch+json","application/apply-patch+yaml"
+                    enum:
+                    - application/json-patch+json
+                    - application/merge-patch+json
+                    - application/strategic-merge-patch+json
+                    - application/apply-patch+yaml
+                    type: string
+                  sourceObjectRefs:
+                    description: SourceObject refs is an arrays of refereces to source
+                      objects that will be used as input for the template processing
+                    items:
+                      description: ObjectReference contains enough information to
+                        let you inspect or modify the referred object.
+                      properties:
+                        apiVersion:
+                          description: API version of the referent.
+                          type: string
+                        fieldPath:
+                          description: 'If referring to a piece of an object instead
+                            of an entire object, this string should contain a valid
+                            JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                            For example, if the object reference is to a container
+                            within a pod, this would take on a value like: "spec.containers{name}"
+                            (where "name" refers to the name of the container that
+                            triggered the event) or if no container name is specified
+                            "spec.containers[2]" (container with index 2 in this pod).
+                            This syntax is chosen only to have some well-defined way
+                            of referencing a part of an object. TODO: this design
+                            is not final and this field is subject to change in the
+                            future.'
+                          type: string
+                        kind:
+                          description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                          type: string
+                        name:
+                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                          type: string
+                        namespace:
+                          description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                          type: string
+                        resourceVersion:
+                          description: 'Specific resourceVersion to which this reference
+                            is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                          type: string
+                        uid:
+                          description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                          type: string
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  targetObjectRef:
+                    description: TargetObjectRef is a reference to the object to which
+                      the pacth should be applied.
+                    properties:
+                      apiVersion:
+                        description: API version of the referent.
+                        type: string
+                      fieldPath:
+                        description: 'If referring to a piece of an object instead
+                          of an entire object, this string should contain a valid
+                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                          For example, if the object reference is to a container within
+                          a pod, this would take on a value like: "spec.containers{name}"
+                          (where "name" refers to the name of the container that triggered
+                          the event) or if no container name is specified "spec.containers[2]"
+                          (container with index 2 in this pod). This syntax is chosen
+                          only to have some well-defined way of referencing a part
+                          of an object. TODO: this design is not final and this field
+                          is subject to change in the future.'
+                        type: string
+                      kind:
+                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                        type: string
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                        type: string
+                      namespace:
+                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                        type: string
+                      resourceVersion:
+                        description: 'Specific resourceVersion to which this reference
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                        type: string
+                      uid:
+                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                        type: string
+                    type: object
                 required:
-                - objectTemplate
+                - patchTemplate
+                - targetObjectRef
                 type: object
               type: array
               x-kubernetes-list-type: atomic
           type: object
         status:
-          description: TemplatedEnforcingCRDStatus defines the observed state of TemplatedEnforcingCRD
+          description: EnforcingPatchStatus defines the observed state of EnforcingPatch
           properties:
             conditions:
               description: ReconcileStatus this is the general status of the main

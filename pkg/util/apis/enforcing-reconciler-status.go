@@ -12,6 +12,10 @@ type EnforcingReconcileStatus struct {
 	//LockedResourceStatuses contains the reconcile status for each of the managed resources
 	// +kubebuilder:validation:Optional
 	LockedResourceStatuses map[string]status.Conditions `json:"lockedResourceStatuses,omitempty"`
+
+	//LockedResourceStatuses contains the reconcile status for each of the managed resources
+	// +kubebuilder:validation:Optional
+	LockedPatchStatuses map[string]status.Conditions `json:"lockedPatchStatuses,omitempty"`
 }
 
 // EnforcingReconcileStatusAware represnt a CRD type that has been enabled with ReconcileStatus, it can then benefit of a series of utility methods.

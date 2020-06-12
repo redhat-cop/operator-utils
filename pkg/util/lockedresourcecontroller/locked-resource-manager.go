@@ -6,7 +6,10 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
+	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch/lockedpatchset"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
+	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource/lockedresourceset"
 	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -25,6 +28,8 @@ type LockedResourceManager struct {
 	stoppableManager    stoppablemanager.StoppableManager
 	resources           []lockedresource.LockedResource
 	resourceReconcilers []*LockedResourceReconciler
+	patches             []lockedpatch.LockedPatch
+	patchReconcilers    []*LockedPatchReconciler
 	config              *rest.Config
 	options             manager.Options
 	parent              apis.Resource
@@ -61,6 +66,11 @@ func (lrm *LockedResourceManager) GetResources() []lockedresource.LockedResource
 	return lrm.resources
 }
 
+//GetPatches retunrs the currently enforced patches
+func (lrm *LockedResourceManager) GetPatches() []lockedpatch.LockedPatch {
+	return lrm.patches
+}
+
 // SetResources set the resources to be enfroced. Can be called only when the LockedResourceManager is stopped.
 func (lrm *LockedResourceManager) SetResources(resources []lockedresource.LockedResource) error {
 	if lrm.stoppableManager.IsStarted() {
@@ -72,6 +82,15 @@ func (lrm *LockedResourceManager) SetResources(resources []lockedresource.Locked
 		return err
 	}
 	lrm.resources = resources
+	return nil
+}
+
+// SetPatches set the patches to be enfroced. Can be called only when the LockedResourceManager is stopped.
+func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) error {
+	if lrm.stoppableManager.IsStarted() {
+		return errors.New("cannot set resources while enforcing is on")
+	}
+	lrm.patches = patches
 	return nil
 }
 
@@ -95,6 +114,18 @@ func (lrm *LockedResourceManager) Start() error {
 		resourceReconcilers = append(resourceReconcilers, reconciler)
 	}
 	lrm.resourceReconcilers = resourceReconcilers
+
+	patchReconcilers := []*LockedPatchReconciler{}
+	for _, patch := range lrm.patches {
+		reconciler, err := NewLockedPatchReconciler(lrm.stoppableManager.Manager, patch, lrm.statusChange, lrm.parent)
+		if err != nil {
+			log.Error(err, "unable to create reconciler", "for locked patch", patch)
+			return err
+		}
+		patchReconcilers = append(patchReconcilers, reconciler)
+	}
+	lrm.patchReconcilers = patchReconcilers
+
 	lrm.stoppableManager.Start()
 	return nil
 }
@@ -116,11 +147,20 @@ func (lrm *LockedResourceManager) Stop(deleteResources bool) error {
 
 // Restart restarts the manager with a different set of resources
 // if deleteResources is set, resources that were enforced are deleted.
-func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResource, deleteResources bool) error {
+func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResource, patches []lockedpatch.LockedPatch, deleteResources bool) error {
 	if lrm.IsStarted() {
 		lrm.Stop(deleteResources)
 	}
-	lrm.SetResources(resources)
+	err := lrm.SetResources(resources)
+	if err != nil {
+		log.Error(err, "unable to set", "resources", resources)
+		return err
+	}
+	lrm.SetPatches(patches)
+	if err != nil {
+		log.Error(err, "unable to set", "patches", patches)
+		return err
+	}
 	stoppableManager, err := stoppablemanager.NewStoppableManager(lrm.config, manager.Options{
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
@@ -135,16 +175,41 @@ func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResou
 
 // IsSameResources checks whether the currently enforced resources are the same as the ones passed as parameters
 // same is true is current resources are the same as the resources passed as a parameter
-// leftDifference containes the resources that are in the current reosurces but not in passed in the parameter
+// leftDifference contains the resources that are in the current reosurces but not in passed in the parameter
 // intersection contains resources that are both in the current resources and the parameter
-// rightDifference containes the resources that are in the parameter but not in the current resources
+// rightDifference contains the resources that are in the parameter but not in the current resources
 func (lrm *LockedResourceManager) IsSameResources(resources []lockedresource.LockedResource) (same bool, leftDifference []lockedresource.LockedResource, intersection []lockedresource.LockedResource, rightDifference []lockedresource.LockedResource) {
-	currentResources := lockedresource.New(lrm.GetResources()...)
-	newResources := lockedresource.New(resources...)
-	leftDifference = lockedresource.Difference(currentResources, newResources).List()
-	intersection = lockedresource.Intersection(currentResources, newResources).List()
-	rightDifference = lockedresource.Difference(newResources, currentResources).List()
+	currentResources := lockedresourceset.New(lrm.GetResources()...)
+	newResources := lockedresourceset.New(resources...)
+	leftDifference = lockedresourceset.Difference(currentResources, newResources).List()
+	intersection = lockedresourceset.Intersection(currentResources, newResources).List()
+	rightDifference = lockedresourceset.Difference(newResources, currentResources).List()
 	same = currentResources.IsEqual(newResources)
+	return same, leftDifference, intersection, rightDifference
+}
+
+// IsSamePatches checks whether the currently enforced patches are the same as the ones passed as parameters
+// same is true is current patches are the same as the patches passed as a parameter
+// leftDifference contains the patches that are in the current patches but not in passed in the parameter
+// intersection contains patches that are both in the current patches and the parameter
+// rightDifference contains the patches that are in the parameter but not in the current patches
+func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatch) (same bool, leftDifference []lockedpatch.LockedPatch, intersection []lockedpatch.LockedPatch, rightDifference []lockedpatch.LockedPatch) {
+	currentHashablePatchMap, currentHashablePatches, err := lockedpatch.GetHashableLockedPatchMap(lrm.GetPatches())
+	if err != nil {
+		log.Error(err, "unable to compute hashable patches")
+		return false, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}
+	}
+	newHashablePatchesMap, newHashablePatches, err := lockedpatch.GetHashableLockedPatchMap(patches)
+	if err != nil {
+		log.Error(err, "unable to compute hashable patches")
+		return false, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}, []lockedpatch.LockedPatch{}
+	}
+	currentPatches := lockedpatchset.New(currentHashablePatches...)
+	newPatches := lockedpatchset.New(newHashablePatches...)
+	leftDifference = lockedpatchset.GetLockedPatchedFromLockedPatchesSet(lockedpatchset.Difference(currentPatches, newPatches), currentHashablePatchMap)
+	intersection = lockedpatchset.GetLockedPatchedFromLockedPatchesSet(lockedpatchset.Intersection(currentPatches, newPatches), currentHashablePatchMap)
+	rightDifference = lockedpatchset.GetLockedPatchedFromLockedPatchesSet(lockedpatchset.Difference(newPatches, currentPatches), newHashablePatchesMap)
+	same = currentPatches.IsEqual(newPatches)
 	return same, leftDifference, intersection, rightDifference
 }
 
@@ -170,6 +235,7 @@ func (lrm *LockedResourceManager) GetResourceReconcilers() []*LockedResourceReco
 	}
 	return []*LockedResourceReconciler{}
 }
+
 
 func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lockedresource.LockedResource) error {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
@@ -210,4 +276,12 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 		return result
 	}
 	return nil
+
+//GetPatchReconcilers return the currently active patch reconcilers
+func (lrm *LockedResourceManager) GetPatchReconcilers() []*LockedPatchReconciler {
+	if lrm.IsStarted() {
+		return lrm.patchReconcilers
+	}
+	return []*LockedPatchReconciler{}
+
 }

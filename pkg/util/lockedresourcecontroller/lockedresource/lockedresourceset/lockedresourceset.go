@@ -2,27 +2,29 @@
 // Use of this source code is governed by a ALv2-style
 // license that can be found at https://github.com/scylladb/go-set/LICENSE.
 
-package lockedresource
+package lockedresourceset
 
 import (
 	"fmt"
 	"math"
 	"strings"
+
+	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 )
 
 var (
 	// helpful to not write everywhere struct{}{}
-	nonExistent LockedResource
+	nonExistent lockedresource.LockedResource
 )
 
 // Set is the main set structure that holds all the data
 // and methods used to working with the set.
 type Set struct {
-	m map[string]LockedResource
+	m map[string]lockedresource.LockedResource
 }
 
 // New creates and initializes a new Set.
-func New(ts ...LockedResource) *Set {
+func New(ts ...lockedresource.LockedResource) *Set {
 	s := NewWithSize(len(ts))
 	s.Add(ts...)
 	return s
@@ -30,12 +32,12 @@ func New(ts ...LockedResource) *Set {
 
 // NewWithSize creates a new Set and gives make map a size hint.
 func NewWithSize(size int) *Set {
-	return &Set{make(map[string]LockedResource, size)}
+	return &Set{make(map[string]lockedresource.LockedResource, size)}
 }
 
 // Add includes the specified items (one or more) to the Set. The underlying
 // Set s is modified. If passed nothing it silently returns.
-func (s *Set) Add(items ...LockedResource) {
+func (s *Set) Add(items ...lockedresource.LockedResource) {
 	for _, item := range items {
 		s.m[item.GetKey()] = item
 	}
@@ -43,7 +45,7 @@ func (s *Set) Add(items ...LockedResource) {
 
 // Remove deletes the specified items from the Set. The underlying Set s is
 // modified. If passed nothing it silently returns.
-func (s *Set) Remove(items ...LockedResource) {
+func (s *Set) Remove(items ...lockedresource.LockedResource) {
 	for _, item := range items {
 		delete(s.m, item.GetKey())
 	}
@@ -51,7 +53,7 @@ func (s *Set) Remove(items ...LockedResource) {
 
 // Pop deletes and returns an item from the Set. The underlying Set s is
 // modified. If Set is empty, the zero value is returned.
-func (s *Set) Pop() LockedResource {
+func (s *Set) Pop() lockedresource.LockedResource {
 	for item, value := range s.m {
 		delete(s.m, item)
 		return value
@@ -63,7 +65,7 @@ func (s *Set) Pop() LockedResource {
 // is modified. The second value is a bool that is true if the item existed in
 // the set, and false if not. If Set is empty, the zero value and false are
 // returned.
-func (s *Set) Pop2() (LockedResource, bool) {
+func (s *Set) Pop2() (lockedresource.LockedResource, bool) {
 	for item, value := range s.m {
 		delete(s.m, item)
 		return value, true
@@ -73,7 +75,7 @@ func (s *Set) Pop2() (LockedResource, bool) {
 
 // Has looks for the existence of items passed. It returns false if nothing is
 // passed. For multiple items it returns true only if all of  the items exist.
-func (s *Set) Has(items ...LockedResource) bool {
+func (s *Set) Has(items ...lockedresource.LockedResource) bool {
 	has := false
 	for _, item := range items {
 		if _, has = s.m[item.GetKey()]; !has {
@@ -86,7 +88,7 @@ func (s *Set) Has(items ...LockedResource) bool {
 // HasAny looks for the existence of any of the items passed.
 // It returns false if nothing is passed.
 // For multiple items it returns true if any of the items exist.
-func (s *Set) HasAny(items ...LockedResource) bool {
+func (s *Set) HasAny(items ...lockedresource.LockedResource) bool {
 	has := false
 	for _, item := range items {
 		if _, has = s.m[item.GetKey()]; has {
@@ -103,7 +105,7 @@ func (s *Set) Size() int {
 
 // Clear removes all items from the Set.
 func (s *Set) Clear() {
-	s.m = make(map[string]LockedResource)
+	s.m = make(map[string]lockedresource.LockedResource)
 }
 
 // IsEmpty reports whether the Set is empty.
@@ -119,7 +121,7 @@ func (s *Set) IsEqual(t *Set) bool {
 	}
 
 	equal := true
-	t.Each(func(item LockedResource) bool {
+	t.Each(func(item lockedresource.LockedResource) bool {
 		_, equal = s.m[item.GetKey()]
 		return equal // if false, Each() will end
 	})
@@ -135,7 +137,7 @@ func (s *Set) IsSubset(t *Set) bool {
 
 	subset := true
 
-	t.Each(func(item LockedResource) bool {
+	t.Each(func(item lockedresource.LockedResource) bool {
 		_, subset = s.m[item.GetKey()]
 		return subset
 	})
@@ -151,7 +153,7 @@ func (s *Set) IsSuperset(t *Set) bool {
 // Each traverses the items in the Set, calling the provided function for each
 // Set member. Traversal will continue until all items in the Set have been
 // visited, or if the closure returns false.
-func (s *Set) Each(f func(item LockedResource) bool) {
+func (s *Set) Each(f func(item lockedresource.LockedResource) bool) {
 	for _, value := range s.m {
 		if !f(value) {
 			break
@@ -179,8 +181,8 @@ func (s *Set) String() string {
 
 // List returns a slice of all items. There is also StringSlice() and
 // IntSlice() methods for returning slices of type string or int.
-func (s *Set) List() []LockedResource {
-	v := make([]LockedResource, 0, s.Size())
+func (s *Set) List() []lockedresource.LockedResource {
+	v := make([]lockedresource.LockedResource, 0, s.Size())
 	for _, value := range s.m {
 		v = append(v, value)
 	}
