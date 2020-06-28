@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/kubernetes/staging/src/k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -28,15 +29,20 @@ type EnforcingReconciler struct {
 	lockedResourceManagers      map[string]*LockedResourceManager
 	statusChange                chan event.GenericEvent
 	lockedResourceManagersMutex sync.Mutex
+	clusterWatchers             bool
 }
 
 //NewEnforcingReconciler creates a new EnforcingReconciler
-func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, recorder record.EventRecorder) EnforcingReconciler {
+// clusterWatcher detemines whether the created watchers should be at the cluster level or namespace level.
+// this affects the kind of permissions needed to run the controlelr
+// also creating multiple namespace level permissions can create performance issue as one watch per object type per namespace is opened to the API server, if in doubt pass true here.
+func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, recorder record.EventRecorder, clusterWatchers bool) EnforcingReconciler {
 	return EnforcingReconciler{
 		ReconcilerBase:              util.NewReconcilerBase(client, scheme, restConfig, recorder),
 		lockedResourceManagers:      map[string]*LockedResourceManager{},
 		statusChange:                make(chan event.GenericEvent),
 		lockedResourceManagersMutex: sync.Mutex{},
+		clusterWatchers:             clusterWatchers,
 	}
 }
 
@@ -56,7 +62,7 @@ func (er *EnforcingReconciler) getLockedResourceManager(instance apis.Resource) 
 	defer er.lockedResourceManagersMutex.Unlock()
 	lockedResourceManager, ok := er.lockedResourceManagers[apis.GetKeyShort(instance)]
 	if !ok {
-		lockedResourceManager, err := NewLockedResourceManager(er.GetRestConfig(), manager.Options{}, instance, er.statusChange)
+		lockedResourceManager, err := NewLockedResourceManager(er.GetRestConfig(), manager.Options{}, instance, er.statusChange, er.clusterWatchers)
 		if err != nil {
 			log.Error(err, "unable to create LockedResourceManager")
 			return &LockedResourceManager{}, err
@@ -107,9 +113,14 @@ func (er *EnforcingReconciler) ManageError(instance apis.Resource, issue error) 
 			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
+		log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 		err := er.GetClient().Status().Update(context.Background(), instance)
 		if err != nil {
-			log.Error(err, "unable to update status for", "object", instance)
+			if errors.IsResourceExpired(err) {
+				log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
+			} else {
+				log.Error(err, "unable to update status for", "object", instance)
+			}
 			return reconcile.Result{}, err
 		}
 	} else {
@@ -134,9 +145,14 @@ func (er *EnforcingReconciler) ManageSuccess(instance apis.Resource) (reconcile.
 			LockedPatchStatuses:    er.GetLockedPatchStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
+		log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 		err := er.GetClient().Status().Update(context.Background(), instance)
 		if err != nil {
-			log.Error(err, "unable to update status for", "object", instance)
+			if errors.IsResourceExpired(err) {
+				log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
+			} else {
+				log.Error(err, "unable to update status for", "object", instance)
+			}
 			return reconcile.Result{}, err
 		}
 	} else {
