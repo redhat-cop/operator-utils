@@ -45,7 +45,7 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileEnforcingCRD{
-		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName)),
+		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName), false),
 	}
 }
 
@@ -61,7 +61,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = c.Watch(&source.Kind{Type: &examplev1alpha1.EnforcingCRD{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "EnforcingCRD",
-		}}}, &handler.EnqueueRequestForObject{})
+		}}}, &handler.EnqueueRequestForObject{}, util.ResourceGenerationOrFinalizerChangedPredicate{})
 	if err != nil {
 		return err
 	}
@@ -124,7 +124,7 @@ func (r *ReconcileEnforcingCRD) Reconcile(request reconcile.Request) (reconcile.
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-
+	log.V(1).Info("about to reconcile", "instance version", instance.GetResourceVersion())
 	if ok := r.IsInitialized(instance); !ok {
 		err := r.GetClient().Update(context.TODO(), instance)
 		if err != nil {
@@ -178,21 +178,21 @@ func (r *ReconcileEnforcingCRD) manageCleanUpLogic(instance *examplev1alpha1.Enf
 // IsInitialized can be used to check if isntance is correctlty initialuzed.
 // returns false it it's not.
 func (r *ReconcileEnforcingCRD) IsInitialized(instance *examplev1alpha1.EnforcingCRD) bool {
-	needsUpdate := true
+	needsUpdate := false
 	for i := range instance.Spec.Resources {
 		currentSet := strset.New(instance.Spec.Resources[i].ExcludedPaths...)
 		if !currentSet.IsEqual(strset.Union(lockedresource.DefaultExcludedPathsSet, currentSet)) {
 			instance.Spec.Resources[i].ExcludedPaths = strset.Union(lockedresource.DefaultExcludedPathsSet, currentSet).List()
-			needsUpdate = false
+			needsUpdate = true
 		}
 	}
 	if len(instance.Spec.Resources) > 0 && !util.HasFinalizer(instance, controllerName) {
 		util.AddFinalizer(instance, controllerName)
-		needsUpdate = false
+		needsUpdate = true
 	}
 	if len(instance.Spec.Resources) == 0 && util.HasFinalizer(instance, controllerName) {
 		util.RemoveFinalizer(instance, controllerName)
-		needsUpdate = false
+		needsUpdate = true
 	}
-	return needsUpdate
+	return !needsUpdate
 }

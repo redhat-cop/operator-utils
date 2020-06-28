@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi"
 	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi/validation"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -34,6 +35,7 @@ type LockedResourceManager struct {
 	options             manager.Options
 	parent              apis.Resource
 	statusChange        chan<- event.GenericEvent
+	clusterWatchers     bool
 }
 
 // NewLockedResourceManager build a new LockedResourceManager
@@ -41,22 +43,14 @@ type LockedResourceManager struct {
 // options: the manager options
 // parent: an object to which send notification when a recocilianton cicle completes for one of the reconcilers
 // statusChange: a channel through which send the notifications
-func NewLockedResourceManager(config *rest.Config, options manager.Options, parent apis.Resource, statusChange chan<- event.GenericEvent) (LockedResourceManager, error) {
-	//diabling metrics
-	options.MetricsBindAddress = "0"
-	options.LeaderElection = false
-
-	stoppableManager, err := stoppablemanager.NewStoppableManager(config, options)
-	if err != nil {
-		log.Error(err, "unable to create stoppable manager")
-		return LockedResourceManager{}, err
-	}
+func NewLockedResourceManager(config *rest.Config, options manager.Options, parent apis.Resource, statusChange chan<- event.GenericEvent, clusterWatchers bool) (LockedResourceManager, error) {
 	lockedResourceManager := LockedResourceManager{
-		stoppableManager: stoppableManager,
-		config:           config,
-		options:          options,
-		parent:           parent,
-		statusChange:     statusChange,
+		//stoppableManager: stoppableManager,
+		config:          config,
+		options:         options,
+		parent:          parent,
+		statusChange:    statusChange,
+		clusterWatchers: clusterWatchers,
 	}
 	return lockedResourceManager, nil
 }
@@ -114,9 +108,27 @@ func (lrm *LockedResourceManager) IsStarted() bool {
 
 // Start starts the LockedResourceManager
 func (lrm *LockedResourceManager) Start() error {
-	if lrm.stoppableManager.IsStarted() {
+	if &lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted() {
 		return nil
 	}
+
+	//diabling metrics
+	options := lrm.options
+	options.MetricsBindAddress = "0"
+	options.LeaderElection = false
+
+	if !lrm.clusterWatchers {
+		options.NewCache = cache.MultiNamespacedCacheBuilder(lrm.scanNamespaces())
+	}
+
+	stoppableManager, err := stoppablemanager.NewStoppableManager(lrm.config, options)
+	lrm.stoppableManager = stoppableManager
+
+	if err != nil {
+		log.Error(err, "unable to create stoppable manager")
+		return err
+	}
+
 	resourceReconcilers := []*LockedResourceReconciler{}
 	for _, resource := range lrm.resources {
 		reconciler, err := NewLockedObjectReconciler(lrm.stoppableManager.Manager, resource.Unstructured, resource.ExcludedPaths, lrm.statusChange, lrm.parent)
@@ -158,6 +170,20 @@ func (lrm *LockedResourceManager) Stop(deleteResources bool) error {
 	return nil
 }
 
+func (lrm *LockedResourceManager) scanNamespaces() []string {
+	namespaceSet := strset.New()
+	for _, resource := range lrm.GetResources() {
+		namespaceSet.Add(resource.GetNamespace())
+	}
+	for _, patch := range lrm.GetPatches() {
+		namespaceSet.Add(patch.TargetObjectRef.Namespace)
+		for _, sourceObj := range patch.SourceObjectRefs {
+			namespaceSet.Add(sourceObj.Namespace)
+		}
+	}
+	return namespaceSet.List()
+}
+
 // Restart restarts the manager with a different set of resources
 // if deleteResources is set, resources that were enforced are deleted.
 func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResource, patches []lockedpatch.LockedPatch, deleteResources bool) error {
@@ -174,15 +200,6 @@ func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResou
 		log.Error(err, "unable to set", "patches", patches)
 		return err
 	}
-	stoppableManager, err := stoppablemanager.NewStoppableManager(lrm.config, manager.Options{
-		MetricsBindAddress: "0",
-		LeaderElection:     false,
-	})
-	if err != nil {
-		log.Error(err, "unable to create stoppable manager")
-		return err
-	}
-	lrm.stoppableManager = stoppableManager
 	return lrm.Start()
 }
 
