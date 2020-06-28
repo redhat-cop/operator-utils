@@ -107,7 +107,7 @@ func (lrm *LockedResourceManager) IsStarted() bool {
 }
 
 // Start starts the LockedResourceManager
-func (lrm *LockedResourceManager) Start() error {
+func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 	if &lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted() {
 		return nil
 	}
@@ -121,7 +121,7 @@ func (lrm *LockedResourceManager) Start() error {
 		options.NewCache = cache.MultiNamespacedCacheBuilder(lrm.scanNamespaces())
 	}
 
-	stoppableManager, err := stoppablemanager.NewStoppableManager(lrm.config, options)
+	stoppableManager, err := stoppablemanager.NewStoppableManager(config, options)
 	lrm.stoppableManager = stoppableManager
 
 	if err != nil {
@@ -186,7 +186,7 @@ func (lrm *LockedResourceManager) scanNamespaces() []string {
 
 // Restart restarts the manager with a different set of resources
 // if deleteResources is set, resources that were enforced are deleted.
-func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResource, patches []lockedpatch.LockedPatch, deleteResources bool) error {
+func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResource, patches []lockedpatch.LockedPatch, deleteResources bool, config *rest.Config) error {
 	if lrm.IsStarted() {
 		lrm.Stop(deleteResources)
 	}
@@ -200,7 +200,7 @@ func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResou
 		log.Error(err, "unable to set", "patches", patches)
 		return err
 	}
-	return lrm.Start()
+	return lrm.Start(config)
 }
 
 // IsSameResources checks whether the currently enforced resources are the same as the ones passed as parameters

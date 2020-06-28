@@ -79,6 +79,16 @@ func (er *EnforcingReconciler) getLockedResourceManager(instance apis.Resource) 
 //    a. return immediately if they are the same
 //    b. restart the LockedResourceManager if they don't match
 func (er *EnforcingReconciler) UpdateLockedResources(instance apis.Resource, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch) error {
+	return er.UpdateLockedResourcesWithRestConfig(instance, lockedResources, lockedPatches, er.GetRestConfig())
+}
+
+// UpdateLockedResourcesWithRestConfig will do the following:
+// 1. initialize or retrieve the LockedResourceManager related to the passed parent resource
+// 2. compare the currently enfrced resources with the one passed as parameters and then
+//    a. return immediately if they are the same
+//    b. restart the LockedResourceManager if they don't match
+// this varian allow passing a rest config
+func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(instance apis.Resource, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch, config *rest.Config) error {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
 		log.Error(err, "unable to get LockedResourceManager")
@@ -87,7 +97,7 @@ func (er *EnforcingReconciler) UpdateLockedResources(instance apis.Resource, loc
 	sameResources, leftDifference, _, _ := lockedResourceManager.IsSameResources(lockedResources)
 	samePatches, _, _, _ := lockedResourceManager.IsSamePatches(lockedPatches)
 	if !sameResources || !samePatches {
-		lockedResourceManager.Restart(lockedResources, lockedPatches, false)
+		lockedResourceManager.Restart(lockedResources, lockedPatches, false, config)
 		err := er.DeleteUnstructuredResources(lockedresource.AsListOfUnstructured(leftDifference))
 		if err != nil {
 			log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
