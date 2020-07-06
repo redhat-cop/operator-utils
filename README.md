@@ -188,6 +188,12 @@ Operator-utils offers some scaffolding to writing these kinds of operators.
 
 Similarly to the `BaseReconciler` class, we have a base type to extend called: `EnforcingReconciler`. This class extends from `BaseReconciler`, so you have all the same facilities as above.
 
+When initializing the EnforcingReconciler, one must chose whether watchers will be created at the cluster level or at the namespace level.
+
+- if cluster level is chosen a watch per CR and type defined in it will be created. This will require the operator to have cluster level access.
+
+- if namespace level watchers is chosen a watch per CR, type and namespace will be created. This will minimize the needed permissions, but depending on what the operator needs to do may open a very high number of connections to the API server.
+
 The body of the reconciler function will look something like this:
 
 ```golang
@@ -205,7 +211,7 @@ Phase1 ... calculate a set of resources to be enforced -> LockedResources
   return r.ManageSuccess(instance)
 ```
 
-this is all you have to do for basic functionality. For mode details see the [example](pkg/controller/apis/enforcingcrd/enforcingcrd_controller.go)
+this is all you have to do for basic functionality. For more details see the [example](pkg/controller/apis/enforcingcrd/enforcingcrd_controller.go)
 the EnforcingReconciler will do the following:
 
 1. restore the resources to the desired stated if the are changed. Notice that you can exclude paths from being considered when deciding whether to restore a resource. As set oj JSON Path can be passed together with the LockedResource. It is recommended to set these paths:
@@ -213,6 +219,12 @@ the EnforcingReconciler will do the following:
     2. `.status`
 
 2. restore resources when they are deleted.
+
+The `UpdateLockedResources` will validate the input as follows:
+
+1. the passed resource must be defined in the current apiserver
+2. the passed resource must be syntactically complaint with the OpenAPI definition of the resource defined in the server.
+3. if the passed resource is namespaced, the namespace field must be initialized.
 
 The finalization method will look like this:
 
@@ -233,9 +245,9 @@ Convenience methods are also available for when resources are templated. See the
 ## Support for operators that need to enforce a set of patches
 
 For similar reasons stated in the previous paragraphs, operators might need to enforce patches.
-A patch modifies an object created by another entity. Because this operator does not own that object a path must be enforced upon changes made on the target objects.
-One must be carful not to create circular situation where an operator deletes the patch and this operator recreates the patches.
-In some situations a patch must be parametric on some state of the cluster. For this reason it's possible to monitor source objects that will be used as a parameters to calculate the patch.
+A patch modifies an object created by another entity. Because in this case the CR does not own the to-be-modified object a patch must be enforced against changes made on it.
+One must be careful not to create circular situations where an operator deletes the patch and this operator recreates the patch.
+In some situations, a patch must be parametric on some state of the cluster. For this reason, it's possible to monitor source objects that will be used as a parameters to calculate the patch.
 
 A patch is defined as follows:
 
@@ -250,15 +262,15 @@ type LockedPatch struct {
 }
 ```
 
-the target object refs and source object refs are watched for changes by the reconciler.
-The relevant part of the operator code would lok like this:
+the targetObjectRef and sourceObjectRefs are watched for changes by the reconciler.
+The relevant part of the operator code would look like this:
 
 ```golang
 validation...
 initialization...
 Phase1 ... calculate a set of patches to be enforced -> LockedPatches
 
-  err = r.UpdateLockedResources(instance, ..., lockedPatches)
+  err = r.UpdateLockedResources(instance, ..., lockedPatches...)
   if err != nil {
     log.Error(err, "unable to update locked resources")
     return r.ManageError(instance, err)
@@ -266,6 +278,12 @@ Phase1 ... calculate a set of patches to be enforced -> LockedPatches
 
   return r.ManageSuccess(instance)
 ```
+
+The `UpdateLockedResources` will validate the input as follows:
+
+1. the passed patch target/source `ObjectRef` resource must be defined in the current apiserver
+2. if the passed patch target/source `ObjectRef` resources are namespaced the corresponding namespace field must be initialized.
+3. the ID must have a not null and unique value in the array of the passed patches.
 
 Patches cannot be undone so there is no need to manage a finalizer.
 

@@ -87,6 +87,9 @@ func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) 
 	// verifyPatchID Uniqueness
 	lockedPathMap := map[string]lockedpatch.LockedPatch{}
 	for _, lockedPatch := range patches {
+		if lockedPatch.ID == "" {
+			return errors.New("lockedPatch.ID must be initialized")
+		}
 		if _, ok := lockedPathMap[lockedPatch.ID]; ok {
 			return errors.New("Duplicate patch id: " + lockedPatch.ID)
 		}
@@ -118,7 +121,9 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 	options.LeaderElection = false
 
 	if !lrm.clusterWatchers {
-		options.NewCache = cache.MultiNamespacedCacheBuilder(lrm.scanNamespaces())
+		namespaces := lrm.scanNamespaces()
+		log.V(1).Info("starting multicache with the following ", "namespaces", namespaces)
+		options.NewCache = cache.MultiNamespacedCacheBuilder(namespaces)
 	}
 
 	stoppableManager, err := stoppablemanager.NewStoppableManager(config, options)
@@ -173,12 +178,18 @@ func (lrm *LockedResourceManager) Stop(deleteResources bool) error {
 func (lrm *LockedResourceManager) scanNamespaces() []string {
 	namespaceSet := strset.New()
 	for _, resource := range lrm.GetResources() {
-		namespaceSet.Add(resource.GetNamespace())
+		if resource.GetNamespace() != "" {
+			namespaceSet.Add(resource.GetNamespace())
+		}
 	}
 	for _, patch := range lrm.GetPatches() {
-		namespaceSet.Add(patch.TargetObjectRef.Namespace)
+		if patch.TargetObjectRef.Namespace != "" {
+			namespaceSet.Add(patch.TargetObjectRef.Namespace)
+		}
 		for _, sourceObj := range patch.SourceObjectRefs {
-			namespaceSet.Add(sourceObj.Namespace)
+			if sourceObj.Namespace != "" {
+				namespaceSet.Add(sourceObj.Namespace)
+			}
 		}
 	}
 	return namespaceSet.List()
@@ -195,7 +206,7 @@ func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResou
 		log.Error(err, "unable to set", "resources", resources)
 		return err
 	}
-	lrm.SetPatches(patches)
+	err = lrm.SetPatches(patches)
 	if err != nil {
 		log.Error(err, "unable to set", "patches", patches)
 		return err
@@ -280,13 +291,13 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 	result := &multierror.Error{}
 	for _, lockedResource := range lockedResources {
 		log.V(1).Info("validating", "resource", lockedResource.Unstructured)
-		defined, err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
+		resource, err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
 		if err != nil {
 			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			multierror.Append(result, err)
 			continue
 		}
-		if !defined {
+		if resource == nil {
 			multierror.Append(result, errors.New("resource type:"+lockedResource.Unstructured.GroupVersionKind().String()+"not defined"))
 			continue
 		}
@@ -294,6 +305,13 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 		if err != nil {
 			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			multierror.Append(result, err)
+			continue
+		}
+		if resource.Namespaced && lockedResource.Unstructured.GetNamespace() == "" {
+			err := errors.New("namespaced resources must specify a namespace")
+			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
+			multierror.Append(result, err)
+			continue
 		}
 	}
 	if result.ErrorOrNil() != nil {
@@ -322,14 +340,20 @@ func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.Lo
 		objrefs := append(lockedPatch.SourceObjectRefs, lockedPatch.TargetObjectRef)
 		for _, objref := range objrefs {
 			log.V(1).Info("validating", "objref", objref)
-			defined, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
+			resource, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
 			if err != nil {
 				log.Error(err, "unable to validate", "objectref", objref)
 				multierror.Append(result, err)
 				continue
 			}
-			if !defined {
+			if resource == nil {
 				multierror.Append(result, errors.New("resource type:"+objref.GroupVersionKind().String()+"not defined"))
+				continue
+			}
+			if resource.Namespaced && objref.Namespace == "" {
+				err := errors.New("namespace must be specified for namespaced resources")
+				log.Error(err, "unable to validate", "objectref", objref)
+				multierror.Append(result, err)
 				continue
 			}
 		}
