@@ -322,14 +322,20 @@ func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.Lo
 		objrefs := append(lockedPatch.SourceObjectRefs, lockedPatch.TargetObjectRef)
 		for _, objref := range objrefs {
 			log.V(1).Info("validating", "objref", objref)
-			defined, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
+			resource, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
 			if err != nil {
 				log.Error(err, "unable to validate", "objectref", objref)
 				multierror.Append(result, err)
 				continue
 			}
-			if !defined {
+			if resource == nil {
 				multierror.Append(result, errors.New("resource type:"+objref.GroupVersionKind().String()+"not defined"))
+				continue
+			}
+			if resource.Namespaced && objref.Namespace == "" {
+				err := errors.New("namespace must be specified for namespaced resources")
+				log.Error(err, "unable to validate", "objectref", objref)
+				multierror.Append(result, err)
 				continue
 			}
 		}

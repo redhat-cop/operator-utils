@@ -22,6 +22,7 @@ import (
 
 	"text/template"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -99,19 +100,21 @@ func ValidateUnstructured(obj *unstructured.Unstructured, validationSchema *vali
 //IsUnstructuredDefined checks whether the content of a unstructured is defined against the passed DiscoveryClient
 func IsUnstructuredDefined(obj *unstructured.Unstructured, discoveryClient *discovery.DiscoveryClient) (bool, error) {
 	gvk := obj.GroupVersionKind()
-	return IsGVKDefined(gvk, discoveryClient)
+	apiresource, err := IsGVKDefined(gvk, discoveryClient)
+	return apiresource != nil, err
 }
 
-func IsGVKDefined(gvk schema.GroupVersionKind, discoveryClient *discovery.DiscoveryClient) (bool, error) {
+//IsGVKDefined verifuled if a resource is defined and returns it
+func IsGVKDefined(gvk schema.GroupVersionKind, discoveryClient *discovery.DiscoveryClient) (*v1.APIResource, error) {
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {
 		log.Error(err, "unable to find resources for", "gvk", gvk)
-		return false, err
+		return nil, err
 	}
 	for _, resource := range resources.APIResources {
 		if resource.Kind == gvk.Kind {
-			return true, nil
+			return &resource, nil
 		}
 	}
-	return false, nil
+	return nil, nil
 }
