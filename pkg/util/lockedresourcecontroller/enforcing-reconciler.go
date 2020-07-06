@@ -97,8 +97,12 @@ func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(instance apis
 	sameResources, leftDifference, _, _ := lockedResourceManager.IsSameResources(lockedResources)
 	samePatches, _, _, _ := lockedResourceManager.IsSamePatches(lockedPatches)
 	if !sameResources || !samePatches {
-		lockedResourceManager.Restart(lockedResources, lockedPatches, false, config)
-		err := er.DeleteUnstructuredResources(lockedresource.AsListOfUnstructured(leftDifference))
+		err := lockedResourceManager.Restart(lockedResources, lockedPatches, false, config)
+		if err != nil {
+			log.Error(err, "unable to restart", "manager", lockedResourceManager)
+			return err
+		}
+		err = er.DeleteUnstructuredResources(lockedresource.AsListOfUnstructured(leftDifference))
 		if err != nil {
 			log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
 			return err

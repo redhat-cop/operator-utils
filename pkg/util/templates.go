@@ -91,17 +91,16 @@ func ValidateUnstructured(obj *unstructured.Unstructured, validationSchema *vali
 	}
 	err = validationSchema.ValidateBytes(bb)
 	if err != nil {
-		log.Error(err, "unable to valudate", "json doc", string(bb), "against schemas", validationSchema)
+		log.Error(err, "unable to validate", "json doc", string(bb), "against schemas", validationSchema)
 		return err
 	}
 	return nil
 }
 
 //IsUnstructuredDefined checks whether the content of a unstructured is defined against the passed DiscoveryClient
-func IsUnstructuredDefined(obj *unstructured.Unstructured, discoveryClient *discovery.DiscoveryClient) (bool, error) {
+func IsUnstructuredDefined(obj *unstructured.Unstructured, discoveryClient *discovery.DiscoveryClient) (*v1.APIResource, error) {
 	gvk := obj.GroupVersionKind()
-	apiresource, err := IsGVKDefined(gvk, discoveryClient)
-	return apiresource != nil, err
+	return IsGVKDefined(gvk, discoveryClient)
 }
 
 //IsGVKDefined verifuled if a resource is defined and returns it
