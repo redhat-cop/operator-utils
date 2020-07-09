@@ -2,6 +2,7 @@ package lockedresourcecontroller
 
 import (
 	"errors"
+	"reflect"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/redhat-cop/operator-utils/pkg/util"
@@ -232,7 +233,7 @@ func (lrm *LockedResourceManager) IsSameResources(resources []lockedresource.Loc
 // IsSamePatches checks whether the currently enforced patches are the same as the ones passed as parameters
 // same is true is current patches are the same as the patches passed as a parameter
 // leftDifference contains the patches that are in the current patches but not in passed in the parameter
-// intersection contains patches that are both in the current patches and the parameter
+// intersection contains patches that are both in the current patches and the parameter, the patch definition may not be the same, the definitions of those in the parameter are returned
 // rightDifference contains the patches that are in the parameter but not in the current patches
 func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatch) (same bool, leftDifference []lockedpatch.LockedPatch, intersection []lockedpatch.LockedPatch, rightDifference []lockedpatch.LockedPatch) {
 	currentPatchMap, currentPatches := lockedpatch.GetLockedPatchMap(lrm.GetPatches())
@@ -240,9 +241,18 @@ func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatc
 	currentPatchSet := strset.New(currentPatches...)
 	newPatchSet := strset.New(newPatches...)
 	leftDifference = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Difference(currentPatchSet, newPatchSet), currentPatchMap)
-	intersection = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Intersection(currentPatchSet, newPatchSet), currentPatchMap)
+	intersection = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Intersection(currentPatchSet, newPatchSet), newPatchMap)
 	rightDifference = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Difference(newPatchSet, currentPatchSet), newPatchMap)
 	same = currentPatchSet.IsEqual(newPatchSet)
+	//we also need to check intersection to see if there are differnces in the pacth definition
+	for _, patchID := range strset.Intersection(currentPatchSet, newPatchSet).List() {
+		currentPatch := currentPatchMap[patchID]
+		newPatch := newPatchMap[patchID]
+		if !reflect.DeepEqual(currentPatch, newPatch) {
+			same = false
+			break
+		}
+	}
 	return same, leftDifference, intersection, rightDifference
 }
 
