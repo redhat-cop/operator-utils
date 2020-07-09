@@ -31,9 +31,14 @@ func AsListOfUnstructured(lockedResources []LockedResource) []unstructured.Unstr
 	return unstructuredList
 }
 
-// GetKey returns a unique key from a locked reosurce, the key is the concatenation of apiVersion/kind/namespace/name
+// GetKey returns the marshalled resource
 func (lr *LockedResource) GetKey() string {
-	return apis.GetKeyLong(&lr.Unstructured)
+	bb, err := lr.Unstructured.MarshalJSON()
+	if err != nil {
+		log.Error(err, "unable to marshall", "unstructured", lr.Unstructured)
+		panic(err)
+	}
+	return string(bb)
 }
 
 // GetLockedResources turns an array of Resources as read from an API into an array of LockedResources, usable by the LockedResourceManager

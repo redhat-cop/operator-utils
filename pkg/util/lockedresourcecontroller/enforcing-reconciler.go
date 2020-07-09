@@ -95,7 +95,9 @@ func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(instance apis
 		return err
 	}
 	sameResources, leftDifference, _, _ := lockedResourceManager.IsSameResources(lockedResources)
+	log.V(1).Info("Is Same Resources", "", sameResources)
 	samePatches, _, _, _ := lockedResourceManager.IsSamePatches(lockedPatches)
+	log.V(1).Info("Is Same Patches", "", samePatches)
 	if !sameResources || !samePatches {
 		err := lockedResourceManager.Restart(lockedResources, lockedPatches, false, config)
 		if err != nil {
