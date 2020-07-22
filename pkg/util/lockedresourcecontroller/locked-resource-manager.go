@@ -193,6 +193,10 @@ func (lrm *LockedResourceManager) scanNamespaces() []string {
 			}
 		}
 	}
+	//in case no namesopace is added it means that all of the objects are cluster scoped, then we need to add an emptu string to activate the cache.
+	if len(lrm.GetResources())+len(lrm.GetPatches()) > 0 && len(namespaceSet.List()) == 0 {
+		return []string{""}
+	}
 	return namespaceSet.List()
 }
 
