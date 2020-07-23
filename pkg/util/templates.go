@@ -19,7 +19,6 @@ package util
 import (
 	"bytes"
 	"encoding/json"
-
 	"text/template"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,7 +58,7 @@ func ProcessTemplate(data interface{}, template *template.Template) (*unstructur
 
 // ProcessTemplateArray processes an initialized Go template with a set of data. It expects an arrays of API objects to be defined in the template. Dishomogeneus types are supported
 func ProcessTemplateArray(data interface{}, template *template.Template) ([]unstructured.Unstructured, error) {
-	obj := []unstructured.Unstructured{}
+	objs := []unstructured.Unstructured{}
 	var b bytes.Buffer
 	err := template.Execute(&b, data)
 	if err != nil {
@@ -72,13 +71,20 @@ func ProcessTemplateArray(data interface{}, template *template.Template) ([]unst
 		return []unstructured.Unstructured{}, err
 	}
 
-	err = json.Unmarshal(bb, &obj)
+	if !IsJSONArray(bb) {
+		obj := unstructured.Unstructured{}
+		err = json.Unmarshal(bb, &obj)
+		objs = append(objs, obj)
+	} else {
+		err = json.Unmarshal(bb, &objs)
+	}
+
 	if err != nil {
 		log.Error(err, "Error unmarshalling json manifest", "manifest", string(bb))
 		return []unstructured.Unstructured{}, err
 	}
 
-	return obj, err
+	return objs, err
 }
 
 // ValidateUnstructured validates the content of an unstructred against an openapi schema.
@@ -116,4 +122,10 @@ func IsGVKDefined(gvk schema.GroupVersionKind, discoveryClient *discovery.Discov
 		}
 	}
 	return nil, nil
+}
+
+//IsJSONArray checks to see if a byte array containing JSON is an array of data
+func IsJSONArray(data []byte) bool {
+	firstLine := bytes.TrimLeft(data, " \t\r\n")
+	return firstLine[0] == '['
 }
