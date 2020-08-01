@@ -10,6 +10,7 @@ import (
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
+	"github.com/scylladb/go-set/strset"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -95,22 +96,43 @@ func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(instance apis
 		return err
 	}
 	sameResources, leftDifference, _, _ := lockedResourceManager.IsSameResources(lockedResources)
+	//the resource in the leftDifference are not necessarily to be deleted, we need to check if the resource has simply been updated maintinign the sam type/namespace/value.
+	toBeDeleted := getToBeDeletdResources(lockedResources, leftDifference)
 	log.V(1).Info("Is Same Resources", "", sameResources)
 	samePatches, _, _, _ := lockedResourceManager.IsSamePatches(lockedPatches)
 	log.V(1).Info("Is Same Patches", "", samePatches)
 	if !sameResources || !samePatches {
+		err = er.DeleteUnstructuredResources(lockedresource.AsListOfUnstructured(toBeDeleted))
+		if err != nil {
+			log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
+			return err
+		}
 		err := lockedResourceManager.Restart(lockedResources, lockedPatches, false, config)
 		if err != nil {
 			log.Error(err, "unable to restart", "manager", lockedResourceManager)
 			return err
 		}
-		err = er.DeleteUnstructuredResources(lockedresource.AsListOfUnstructured(leftDifference))
-		if err != nil {
-			log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
-			return err
-		}
 	}
 	return nil
+}
+
+func getToBeDeletdResources(neededResources []lockedresource.LockedResource, modifiedResources []lockedresource.LockedResource) []lockedresource.LockedResource {
+	neededResourceSet := strset.New()
+	modifiedResourcesSet := strset.New()
+	modifiedResourceMap := map[string]lockedresource.LockedResource{}
+	toBeDeleted := []lockedresource.LockedResource{}
+	for _, lockerResource := range neededResources {
+		neededResourceSet.Add(apis.GetKeyLong(&lockerResource))
+	}
+	for _, lockerResource := range modifiedResources {
+		neededResourceSet.Add(apis.GetKeyLong(&lockerResource))
+		modifiedResourceMap[apis.GetKeyLong(&lockerResource)] = lockerResource
+	}
+	toBeDeletedKeys := strset.Difference(modifiedResourcesSet, neededResourceSet).List()
+	for _, resourceKey := range toBeDeletedKeys {
+		toBeDeleted = append(toBeDeleted, modifiedResourceMap[resourceKey])
+	}
+	return toBeDeleted
 }
 
 //ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
