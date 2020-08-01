@@ -10,7 +10,7 @@ import (
 
 var log = logf.Log.WithName("util.api")
 
-// GetKeyLong return a unique key for a given object in the pattern of <apiversion>/<namespace>/<name>
+// GetKeyLong return a unique key for a given object in the pattern of <kind>/<apiversion>/<namespace>/<name>
 // namespace can be null
 func GetKeyLong(obj metav1.Object) string {
 	robj, ok := obj.(runtime.Object)
