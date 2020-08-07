@@ -289,6 +289,47 @@ Patches cannot be undone so there is no need to manage a finalizer.
 
 [Here](./pkg/controller/enforcingpatch/enforcingpatch_controller.go) you can find an example of how to implement an operator with this the ability to enforce patches.
 
+## Support for operators that need dynamic creation of locked resources using templates
+
+Operators may also need to leverage locked resources created dynamically through templates. This can be done using [go templates](https://golang.org/pkg/text/template/) and leveraging the `GetLockedResourcesFromTemplates` function.
+
+```golang
+lockedResources, err := r.GetLockedResourcesFromTemplates(templates..., params...)
+if err != nil {
+  log.Error(err, "unable to process templates with param")
+  return err
+}
+```  
+The `GetLockedResourcesFromTemplates` will validate the input as follows:
+
+1. check that the passed template is valid
+2. format the template using the properties of the passed object in the params parameter
+3. create an array of `LockedResource` objects based on parsed template
+
+The example below shows how templating can be used to reference the name of the resource passed as the parameter and use it as a property in the creation of the `LockedResource`.
+
+```golang
+objectTemplate: |
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: {{ .Name }}
+```
+
+This functionality can leverage advanced features of go templating, such as loops, to generate more than one object following a set pattern. The below example will create an array of namespace `LockedResources` using the title of any key where the associated value matches the text *devteam* in the key/value pair of the `Labels` property of the resource passed as in the parameter.
+
+```golang
+objectTemplate: |
+  {{range $key, $value := $.Labels}}
+    {{if eq $value "devteam"}}
+      - apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: {{ $key }}
+    {{end}}
+  {{end}}
+```
+
 ## Local Development
 
 Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
