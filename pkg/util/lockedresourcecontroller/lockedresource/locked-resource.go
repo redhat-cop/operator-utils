@@ -75,15 +75,17 @@ func GetLockedResourcesFromTemplates(resources []apis.LockedResourceTemplate, pa
 			log.Error(err, "unable to retrieve template for", "resource", resource)
 			return []LockedResource{}, nil
 		}
-		obj, err := util.ProcessTemplate(params, template)
+		objs, err := util.ProcessTemplateArray(params, template)
 		if err != nil {
 			log.Error(err, "unable to process template for", "resource", resource, "params", params)
 			return []LockedResource{}, nil
 		}
-		lockedResources = append(lockedResources, LockedResource{
-			Unstructured:  *obj,
-			ExcludedPaths: resource.ExcludedPaths,
-		})
+		for _, obj := range objs {
+			lockedResources = append(lockedResources, LockedResource{
+				Unstructured:  obj,
+				ExcludedPaths: resource.ExcludedPaths,
+			})
+		}
 	}
 	return lockedResources, nil
 }
