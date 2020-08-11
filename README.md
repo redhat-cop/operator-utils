@@ -330,6 +330,20 @@ objectTemplate: |
   {{end}}
 ```
 
+## Support for operators that need advanced templating functionality
+
+Operators may need to utilize more advanced templating functions not found in the base go templating library. Go based tools like Helm leverage advanced templating found in the library [sprig](http://masterminds.github.io/sprig/) which includes a wide range of advanced string, math, security and date functionality. This can be enabled by setting the `enableSprigTemplates` to true in the `LockedResouceTemplate` definition.
+
+```golang  
+template:
+  enableSprigTemplates: true
+  objectTemplate: |
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: {{ .Name | lower | shuffle }}
+```
+
 ## Local Development
 
 Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
