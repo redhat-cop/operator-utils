@@ -1,6 +1,8 @@
 module github.com/redhat-cop/operator-utils
 
 require (
+	github.com/Masterminds/semver v1.5.0 // indirect
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/fatih/set v0.2.1
 	github.com/hashicorp/go-multierror v1.0.0

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"text/template"
 
+	"github.com/Masterminds/sprig"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/scylladb/go-set/strset"
@@ -94,7 +95,11 @@ func getTemplate(resource *apis.LockedResourceTemplate) (*template.Template, err
 	tmpl, ok := templates[resource.ObjectTemplate]
 	var err error
 	if !ok {
-		tmpl, err = template.New(resource.ObjectTemplate).Parse(resource.ObjectTemplate)
+		if resource.EnableSprigTemplates {
+			tmpl = template.Must(template.New(resource.ObjectTemplate).Funcs(sprig.TxtFuncMap()).Parse(resource.ObjectTemplate))
+		} else {
+			tmpl, err = template.New(resource.ObjectTemplate).Parse(resource.ObjectTemplate)
+		}
 		if err != nil {
 			log.Error(err, "unable to parse", "template", resource.ObjectTemplate)
 			return nil, err
