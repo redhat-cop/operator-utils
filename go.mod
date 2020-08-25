@@ -14,7 +14,7 @@ require (
 	k8s.io/kubernetes v1.13.0
 	sigs.k8s.io/controller-runtime v0.6.0
 	sigs.k8s.io/yaml v1.2.0
-
+    github.com/Masterminds/sprig/v3 v3.1.0
 )
 
 replace (
