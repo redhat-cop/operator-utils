@@ -8,6 +8,7 @@ import (
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
@@ -66,11 +67,17 @@ func GetLockedResources(resources []apis.LockedResource) ([]LockedResource, erro
 
 var templates = map[string]*template.Template{}
 
-// GetLockedResourcesFromTemplate turns an array of ResourceTemplates as read from an API into an array of LockedResources using a params to process the templates
+// GetLockedResourcesFromTemplate Keep backwards compatability with existing consumers
 func GetLockedResourcesFromTemplates(resources []apis.LockedResourceTemplate, params interface{}) ([]LockedResource, error) {
+
+	return GetLockedResourcesFromTemplatesWithRestConfig(resources, nil, params)
+}
+
+// GetLockedResourcesFromTemplateWithRestConfig turns an array of ResourceTemplates as read from an API into an array of LockedResources using a params to process the templates
+func GetLockedResourcesFromTemplatesWithRestConfig(resources []apis.LockedResourceTemplate, config *rest.Config, params interface{}) ([]LockedResource, error) {
 	lockedResources := []LockedResource{}
 	for _, resource := range resources {
-		template, err := getTemplate(&resource)
+		template, err := getTemplate(&resource, config)
 		if err != nil {
 			log.Error(err, "unable to retrieve template for", "resource", resource)
 			return []LockedResource{}, nil
@@ -90,11 +97,11 @@ func GetLockedResourcesFromTemplates(resources []apis.LockedResourceTemplate, pa
 	return lockedResources, nil
 }
 
-func getTemplate(resource *apis.LockedResourceTemplate) (*template.Template, error) {
+func getTemplate(resource *apis.LockedResourceTemplate, config *rest.Config) (*template.Template, error) {
 	tmpl, ok := templates[resource.ObjectTemplate]
 	var err error
 	if !ok {
-		tmpl, err = template.New(resource.ObjectTemplate).Funcs(util.AdvancedTemplateFuncMap()).Parse(resource.ObjectTemplate)
+		tmpl, err = template.New(resource.ObjectTemplate).Funcs(util.AdvancedTemplateFuncMap(config)).Parse(resource.ObjectTemplate)
 		if err != nil {
 			log.Error(err, "unable to parse", "template", resource.ObjectTemplate)
 			return nil, err

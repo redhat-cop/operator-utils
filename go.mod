@@ -9,6 +9,7 @@ require (
 	github.com/fatih/set v0.2.1
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/operator-framework/operator-sdk v0.18.1
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.9.1
 	github.com/scylladb/go-set v1.0.2
 	github.com/spf13/pflag v1.0.5
