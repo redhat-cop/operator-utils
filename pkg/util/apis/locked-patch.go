@@ -26,10 +26,6 @@ type Patch struct {
 	// default:="application/strategic-merge-patch+json"
 	PatchType types.PatchType `json:"patchType,omitempty"`
 
-	// EnableSprintTemplates triggers the sprig go templating library when enabled. Defaults to false.
-	// +kubebuilder:validation:Optional
-	EnableAdvancedTemplateFunctions bool `json:"enableAdvancedTemplateFunctions,omitempty"`
-
 	// PatchTemplate is a go template that will be resolved using the SourceObjectRefs as parameters. The result must be a valid patch based on the pacth type and the target object.
 	// +kubebuilder:validation:Required
 	PatchTemplate string `json:"patchTemplate"`

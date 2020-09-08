@@ -49,12 +49,7 @@ func GetLockedPatchedFromLockedPatchesSet(lockedPatchSet *strset.Set, lockedPatc
 func GetLockedPatches(patches []apis.Patch) ([]LockedPatch, error) {
 	lockedPatches := []LockedPatch{}
 	for _, patch := range patches {
-		template, err := template.New(patch.PatchTemplate).Parse(patch.PatchTemplate)
-		if patch.EnableAdvancedTemplateFunctions {
-			template, err = template.New(patch.PatchTemplate).Funcs(util.CustomFuncMap()).Parse(patch.PatchTemplate)
-		} else {
-			template, err = template.New(patch.PatchTemplate).Parse(patch.PatchTemplate)
-		}
+		template, err := template.New(patch.PatchTemplate).Funcs(util.CustomFuncMap()).Parse(patch.PatchTemplate)
 		if err != nil {
 			log.Error(err, "unable to parse ", "template", patch.PatchTemplate)
 			return []LockedPatch{}, err

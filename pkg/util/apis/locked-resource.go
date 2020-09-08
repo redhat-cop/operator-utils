@@ -22,10 +22,6 @@ type LockedResource struct {
 // +k8s:openapi-gen=true
 type LockedResourceTemplate struct {
 
-	// EnableSprintTemplates triggers the sprig go templating library when enabled. Defaults to false.
-	// +kubebuilder:validation:Optional
-	EnableAdvancedTemplateFunctions bool `json:"enableAdvancedTemplateFunctions,omitempty"`
-
 	// ObjectTemplate is a goland template. Whne processed, it must resolve to a yaml representation of an API resource
 	// +kubebuilder:validation:Required
 	ObjectTemplate string `json:"objectTemplate"`
