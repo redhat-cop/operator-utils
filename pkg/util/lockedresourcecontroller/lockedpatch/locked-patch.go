@@ -4,6 +4,7 @@ import (
 	"text/template"
 
 	"github.com/prometheus/common/log"
+	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/scylladb/go-set/strset"
 	corev1 "k8s.io/api/core/v1"
@@ -49,6 +50,11 @@ func GetLockedPatches(patches []apis.Patch) ([]LockedPatch, error) {
 	lockedPatches := []LockedPatch{}
 	for _, patch := range patches {
 		template, err := template.New(patch.PatchTemplate).Parse(patch.PatchTemplate)
+		if patch.EnableAdvancedTemplateFunctions {
+			template, err = template.New(patch.PatchTemplate).Funcs(util.CustomFuncMap()).Parse(patch.PatchTemplate)
+		} else {
+			template, err = template.New(patch.PatchTemplate).Parse(patch.PatchTemplate)
+		}
 		if err != nil {
 			log.Error(err, "unable to parse ", "template", patch.PatchTemplate)
 			return []LockedPatch{}, err
