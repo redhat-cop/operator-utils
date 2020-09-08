@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// CustomFuncMap to add Sprig and additional templating functions
-func CustomFuncMap() template.FuncMap {
+// AdvancedTemplateFuncMap to add Sprig and additional templating functions
+func AdvancedTemplateFuncMap() template.FuncMap {
 	f := sprig.HermeticTxtFuncMap()
 	// Removed these functions from the core Sprig package for security concerns
 	delete(f, "env")

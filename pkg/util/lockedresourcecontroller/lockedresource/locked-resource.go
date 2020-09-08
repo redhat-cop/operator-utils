@@ -94,7 +94,7 @@ func getTemplate(resource *apis.LockedResourceTemplate) (*template.Template, err
 	tmpl, ok := templates[resource.ObjectTemplate]
 	var err error
 	if !ok {
-		tmpl, err = template.New(resource.ObjectTemplate).Funcs(util.CustomFuncMap()).Parse(resource.ObjectTemplate)
+		tmpl, err = template.New(resource.ObjectTemplate).Funcs(util.AdvancedTemplateFuncMap()).Parse(resource.ObjectTemplate)
 		if err != nil {
 			log.Error(err, "unable to parse", "template", resource.ObjectTemplate)
 			return nil, err
