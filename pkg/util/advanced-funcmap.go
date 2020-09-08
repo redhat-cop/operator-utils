@@ -66,6 +66,18 @@ func AdvancedTemplateFuncMap(config *rest.Config) template.FuncMap {
 	// Adding additional functionality found in Helm
 	f["lookup"] = NewLookupFunction(config)
 
+	// Add the `required` function here so we can use lintMode
+	f["required"] = func(warn string, val interface{}) (interface{}, error) {
+		if val == nil {
+			return val, errors.Errorf(warn)
+		} else if _, ok := val.(string); ok {
+			if val == "" {
+				return val, errors.Errorf(warn)
+			}
+		}
+		return val, nil
+	}
+
 	return f
 }
 
@@ -171,6 +183,7 @@ func fromJSONArray(str string) []interface{} {
 
 type lookupFunc = func(apiversion string, resource string, namespace string, name string) (map[string]interface{}, error)
 
+// NewLookupFunction get information at runtime from cluster
 func NewLookupFunction(config *rest.Config) lookupFunc {
 	return func(apiversion string, resource string, namespace string, name string) (map[string]interface{}, error) {
 		var client dynamic.ResourceInterface
