@@ -332,7 +332,7 @@ objectTemplate: |
 
 ## Support for operators that need advanced templating functionality
 
-Operators may need to utilize more advanced templating functions not found in the base go templating library. Go based tools like Helm leverage advanced templating found in the library [sprig](http://masterminds.github.io/sprig/) which includes a wide range of advanced string, math, security and date functionality. This can be enabled by setting the `enableAdvancedTemplateFunctions` to true in the `LockedResouceTemplate` definition.
+Operators may need to utilize more advanced templating functions not found in the base go templating library. Go based tools like Helm leverage advanced templating found in the library [sprig](http://masterminds.github.io/sprig/) which includes a wide range of advanced string, math, security and date functionality. This can be enabled by setting the `enableAdvancedTemplateFunctions` to true in the `LockedResouceTemplate` or the `Patch` resource definitions.
 
 ```golang  
 template:
