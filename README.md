@@ -332,31 +332,15 @@ objectTemplate: |
 
 ## Support for operators that need advanced templating functionality
 
-Operators may need to utilize more advanced templating functions not found in the base go templating library. Go based tools like Helm leverage advanced templating found in the library [sprig](http://masterminds.github.io/sprig/) which includes a wide range of advanced string, math, security and date functionality. This can be enabled by setting the `enableAdvancedTemplateFunctions` to true in the `LockedResouceTemplate` or the `Patch` resource definitions.
+Operators may need to utilize advanced templating functions not found in the base go templating library. This advanced template functionality matches the same available in the popular k8s management tool [Helm](https://helm.sh/). `LockedPatch` templates uses this functionality by default. To utilize these features when using `LockedResources` the following function is required,
 
-```golang  
-template:
-  enableAdvancedTemplateFunctions: true
-  objectTemplate: |
-    - apiVersion: v1
-      kind: Namespace
-      metadata:
-        name: {{ .Name | lower | shuffle }}
-```
-
-The templating also includes advanced parsing functions found in Helm such as `ToJson` and `ToYaml`. 
-
-```golang  
-templates:
-- enableAdvancedTemplateFunctions: true
-  objectTemplate: |
-    - apiVersion: v1
-      kind: Namespace
-      metadata:
-        annotations:
-          sourceTemplate: "{{ toYaml . | b64enc }}"
-        name: {{ index .Labels "teamname" | lower }}
-```
+```golang
+lockedResources, err := r.GetLockedResourcesFromTemplatesWithRestConfig(templates..., rest.Config..., params...)
+if err != nil {
+  log.Error(err, "unable to process templates with param")
+  return err
+}
+```  
 
 ## Local Development
 
