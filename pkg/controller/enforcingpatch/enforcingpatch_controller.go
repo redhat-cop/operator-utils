@@ -120,7 +120,7 @@ func (r *ReconcileEnforcingPatch) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, nil
 	}
 
-	lockedPatches, err := lockedpatch.GetLockedPatches(instance.Spec.Patches)
+	lockedPatches, err := lockedpatch.GetLockedPatches(instance.Spec.Patches, r.GetRestConfig())
 	if err != nil {
 		log.Error(err, "unable to get locked patches")
 		return r.ManageError(instance, err)

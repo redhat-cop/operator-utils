@@ -139,7 +139,7 @@ func (r *ReconcileTemplatedEnforcingCRD) Reconcile(request reconcile.Request) (r
 		return reconcile.Result{}, nil
 	}
 
-	lockedResources, err := lockedresource.GetLockedResourcesFromTemplates(instance.Spec.Templates, instance)
+	lockedResources, err := lockedresource.GetLockedResourcesFromTemplates(instance.Spec.Templates, r.GetRestConfig(), instance)
 	if err != nil {
 		log.Error(err, "unable to get locked resources")
 		return r.ManageError(instance, err)

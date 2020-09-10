@@ -330,6 +330,18 @@ objectTemplate: |
   {{end}}
 ```
 
+## Support for operators that need advanced templating functionality
+
+Operators may need to utilize advanced templating functions not found in the base go templating library. This advanced template functionality matches the same available in the popular k8s management tool [Helm](https://helm.sh/). `LockedPatch` templates uses this functionality by default. To utilize these features when using `LockedResources` the following function is required,
+
+```golang
+lockedResources, err := r.GetLockedResourcesFromTemplatesWithRestConfig(templates..., rest.Config..., params...)
+if err != nil {
+  log.Error(err, "unable to process templates with param")
+  return err
+}
+```  
+
 ## Local Development
 
 Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
