@@ -125,7 +125,7 @@ func getToBeDeletdResources(neededResources []lockedresource.LockedResource, mod
 		neededResourceSet.Add(apis.GetKeyLong(&lockerResource))
 	}
 	for _, lockerResource := range modifiedResources {
-		neededResourceSet.Add(apis.GetKeyLong(&lockerResource))
+		modifiedResourcesSet.Add(apis.GetKeyLong(&lockerResource))
 		modifiedResourceMap[apis.GetKeyLong(&lockerResource)] = lockerResource
 	}
 	toBeDeletedKeys := strset.Difference(modifiedResourcesSet, neededResourceSet).List()
