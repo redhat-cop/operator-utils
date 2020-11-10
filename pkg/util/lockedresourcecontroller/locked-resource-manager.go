@@ -1,8 +1,8 @@
 package lockedresourcecontroller
 
 import (
+	"encoding/json"
 	"errors"
-	"reflect"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/redhat-cop/operator-utils/pkg/util"
@@ -250,9 +250,9 @@ func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatc
 	same = currentPatchSet.IsEqual(newPatchSet)
 	//we also need to check intersection to see if there are differnces in the pacth definition
 	for _, patchID := range strset.Intersection(currentPatchSet, newPatchSet).List() {
-		currentPatch := currentPatchMap[patchID]
-		newPatch := newPatchMap[patchID]
-		if !reflect.DeepEqual(currentPatch, newPatch) {
+		currentPatch, _ := json.Marshal(currentPatchMap[patchID])
+		newPatch, _ := json.Marshal(newPatchMap[patchID])
+		if string(currentPatch) != string(newPatch) {
 			same = false
 			break
 		}
