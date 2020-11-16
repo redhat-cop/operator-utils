@@ -168,9 +168,7 @@ var predicateLog = logf.Log.WithName("predicate").WithName("ReferenceModifiedPre
 
 // Update implements default UpdateEvent filter for validating resource version change
 func (p *referenceModifiedPredicate) Update(e event.UpdateEvent) bool {
-	fmt.Printf("got here1\n")
 	if e.MetaNew.GetName() == p.ObjectReference.Name && e.MetaNew.GetNamespace() == p.ObjectReference.Namespace {
-		log.Info("got here2")
 		if compareObjectsWithoutIgnoredFields(p.Client, e.MetaNew, p.ObjectReference) {
 			return false
 		}
@@ -205,7 +203,6 @@ func compareObjectsWithoutIgnoredFields(client client.Client, changedObjSrc meta
 	changeObj.SetResourceVersion("")
 	patchObj.SetManagedFields(nil)
 	patchObj.SetResourceVersion("")
-
 	changeObjJSON, _ := json.Marshal(changeObj)
 	patchObjJSON, _ := json.Marshal(patchObj)
 
