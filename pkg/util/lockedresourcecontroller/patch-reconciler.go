@@ -86,7 +86,6 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 		},
 	}, &referenceModifiedPredicate{
 		ObjectReference: patch.TargetObjectRef,
-		Client:          reconciler.GetClient(),
 	})
 	if err != nil {
 		return &LockedPatchReconciler{}, err
@@ -106,7 +105,6 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 			},
 		}, &referenceModifiedPredicate{
 			ObjectReference: sourceRef,
-			Client:          reconciler.GetClient(),
 		})
 		if err != nil {
 			return &LockedPatchReconciler{}, err
@@ -161,7 +159,6 @@ func (e *enqueueRequestForPatch) Generic(evt event.GenericEvent, q workqueue.Rat
 type referenceModifiedPredicate struct {
 	corev1.ObjectReference
 	predicate.Funcs
-	client.Client
 }
 
 var predicateLog = logf.Log.WithName("predicate").WithName("ReferenceModifiedPredicate")
@@ -169,7 +166,7 @@ var predicateLog = logf.Log.WithName("predicate").WithName("ReferenceModifiedPre
 // Update implements default UpdateEvent filter for validating resource version change
 func (p *referenceModifiedPredicate) Update(e event.UpdateEvent) bool {
 	if e.MetaNew.GetName() == p.ObjectReference.Name && e.MetaNew.GetNamespace() == p.ObjectReference.Namespace {
-		if compareObjectsWithoutIgnoredFields(p.Client, e.MetaNew, p.ObjectReference) {
+		if compareObjectsWithoutIgnoredFields(e.MetaNew, e.MetaOld) {
 			return false
 		}
 		return true
@@ -195,18 +192,19 @@ func (p *referenceModifiedPredicate) Generic(e event.GenericEvent) bool {
 }
 
 // we ignore the fields of resourceVersion and managedFields
-func compareObjectsWithoutIgnoredFields(client client.Client, changedObjSrc metav1.Object, patchObjSrc corev1.ObjectReference) bool {
+func compareObjectsWithoutIgnoredFields(changedObjSrc metav1.Object, originalObjSrc metav1.Object) bool {
 	changeObj := changedObjSrc
-	patchObj := &unstructured.Unstructured{}
-	client.Get(context.TODO(), types.NamespacedName{Name: patchObjSrc.Name, Namespace: patchObjSrc.Namespace}, patchObj)
+	originalObj := originalObjSrc
+
 	changeObj.SetManagedFields(nil)
 	changeObj.SetResourceVersion("")
-	patchObj.SetManagedFields(nil)
-	patchObj.SetResourceVersion("")
-	changeObjJSON, _ := json.Marshal(changeObj)
-	patchObjJSON, _ := json.Marshal(patchObj)
+	originalObj.SetManagedFields(nil)
+	originalObj.SetResourceVersion("")
 
-	return (string(changeObjJSON) == string(patchObjJSON))
+	changeObjJSON, _ := json.Marshal(changeObj)
+	originalObjJSON, _ := json.Marshal(originalObj)
+
+	return (string(changeObjJSON) == string(originalObjJSON))
 }
 
 //Reconcile method
