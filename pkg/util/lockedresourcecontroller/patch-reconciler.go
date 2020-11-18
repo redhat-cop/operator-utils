@@ -3,6 +3,7 @@ package lockedresourcecontroller
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -165,6 +166,9 @@ var predicateLog = logf.Log.WithName("predicate").WithName("ReferenceModifiedPre
 // Update implements default UpdateEvent filter for validating resource version change
 func (p *referenceModifiedPredicate) Update(e event.UpdateEvent) bool {
 	if e.MetaNew.GetName() == p.ObjectReference.Name && e.MetaNew.GetNamespace() == p.ObjectReference.Namespace {
+		if compareObjectsWithoutIgnoredFields(e.ObjectNew, e.ObjectOld) {
+			return false
+		}
 		return true
 	}
 	return false
@@ -185,6 +189,22 @@ func (p *referenceModifiedPredicate) Delete(e event.DeleteEvent) bool {
 func (p *referenceModifiedPredicate) Generic(e event.GenericEvent) bool {
 	// we ignore Generic events
 	return false
+}
+
+// we ignore the fields of resourceVersion and managedFields
+func compareObjectsWithoutIgnoredFields(changedObjSrc runtime.Object, originalObjSrc runtime.Object) bool {
+	changedObj := changedObjSrc.DeepCopyObject().(*unstructured.Unstructured)
+	originalObj := originalObjSrc.DeepCopyObject().(*unstructured.Unstructured)
+
+	changedObj.SetManagedFields(nil)
+	changedObj.SetResourceVersion("")
+	originalObj.SetManagedFields(nil)
+	originalObj.SetResourceVersion("")
+
+	changedObjJSON, _ := json.Marshal(changedObj)
+	originalObjJSON, _ := json.Marshal(originalObj)
+
+	return (string(changedObjJSON) == string(originalObjJSON))
 }
 
 //Reconcile method
