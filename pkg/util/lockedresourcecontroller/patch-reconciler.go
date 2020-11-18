@@ -193,18 +193,18 @@ func (p *referenceModifiedPredicate) Generic(e event.GenericEvent) bool {
 
 // we ignore the fields of resourceVersion and managedFields
 func compareObjectsWithoutIgnoredFields(changedObjSrc runtime.Object, originalObjSrc runtime.Object) bool {
-	changeObj := changedObjSrc.DeepCopyObject().(*unstructured.Unstructured)
+	changedObj := changedObjSrc.DeepCopyObject().(*unstructured.Unstructured)
 	originalObj := originalObjSrc.DeepCopyObject().(*unstructured.Unstructured)
 
-	changeObj.SetManagedFields(nil)
-	changeObj.SetResourceVersion("")
+	changedObj.SetManagedFields(nil)
+	changedObj.SetResourceVersion("")
 	originalObj.SetManagedFields(nil)
 	originalObj.SetResourceVersion("")
 
-	changeObjJSON, _ := json.Marshal(changeObj)
+	changedObjJSON, _ := json.Marshal(changedObj)
 	originalObjJSON, _ := json.Marshal(originalObj)
 
-	return (string(changeObjJSON) == string(originalObjJSON))
+	return (string(changedObjJSON) == string(originalObjJSON))
 }
 
 //Reconcile method
