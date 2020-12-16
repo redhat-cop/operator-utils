@@ -1,0 +1,24 @@
+# permissions for end users to edit enforcingcrds.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: enforcingcrd-editor-role
+rules:
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingcrds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingcrds/status
+  verbs:
+  - get

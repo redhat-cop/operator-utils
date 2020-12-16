@@ -1,50 +1,58 @@
 package stoppablemanager
 
 import (
+	"context"
 	"errors"
 
 	"k8s.io/client-go/rest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("stoppable_manager")
 
+//StoppableManager A StoppableManaager allows you to easily create controller-runtim.Managers that can be started and stopped.
 type StoppableManager struct {
 	started bool
 	manager.Manager
-	stopChannel chan struct{}
+	cancelFunction context.CancelFunc
 }
 
+//Stop stops the manager
 func (sm *StoppableManager) Stop() {
 	if !sm.started {
 		log.Error(errors.New("invalid argument"), "stop called on a non started channel", "started", sm.started)
 		return
 	}
-	close(sm.stopChannel)
+	sm.cancelFunction()
+	//close(sm.stopChannel)
 	sm.started = false
 }
 
+//Start starts the manager. Restarting a starated manager is a noop that will be logged.
 func (sm *StoppableManager) Start() {
 	if sm.started {
 		log.Error(errors.New("invalid argument"), "start called on a started channel")
 		return
 	}
-	go sm.Manager.Start(sm.stopChannel)
+	ctx, cancel := context.WithCancel(context.TODO())
+	sm.cancelFunction = cancel
+	go sm.Manager.Start(ctx)
 	sm.started = true
 }
 
+//NewStoppableManager creates a new stoppable manager
 func NewStoppableManager(config *rest.Config, options manager.Options) (StoppableManager, error) {
 	manager, err := manager.New(config, options)
 	if err != nil {
 		return StoppableManager{}, err
 	}
 	return StoppableManager{
-		Manager:     manager,
-		stopChannel: make(chan struct{}),
+		Manager: manager,
 	}, nil
 }
 
+//IsStarted returns wether this stoppable manager is running.
 func (sm *StoppableManager) IsStarted() bool {
 	return sm.started
 }

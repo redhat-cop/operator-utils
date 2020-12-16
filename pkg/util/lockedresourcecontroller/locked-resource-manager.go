@@ -1,12 +1,12 @@
 package lockedresourcecontroller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/redhat-cop/operator-utils/pkg/util"
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource/lockedresourceset"
@@ -15,9 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi"
-	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi/validation"
+	"k8s.io/kubectl/pkg/util/openapi"
+	"k8s.io/kubectl/pkg/util/openapi/validation"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -34,7 +35,7 @@ type LockedResourceManager struct {
 	patchReconcilers    []*LockedPatchReconciler
 	config              *rest.Config
 	options             manager.Options
-	parent              apis.Resource
+	parent              client.Object
 	statusChange        chan<- event.GenericEvent
 	clusterWatchers     bool
 }
@@ -44,7 +45,7 @@ type LockedResourceManager struct {
 // options: the manager options
 // parent: an object to which send notification when a recocilianton cicle completes for one of the reconcilers
 // statusChange: a channel through which send the notifications
-func NewLockedResourceManager(config *rest.Config, options manager.Options, parent apis.Resource, statusChange chan<- event.GenericEvent, clusterWatchers bool) (LockedResourceManager, error) {
+func NewLockedResourceManager(config *rest.Config, options manager.Options, parent client.Object, statusChange chan<- event.GenericEvent, clusterWatchers bool) (LockedResourceManager, error) {
 	lockedResourceManager := LockedResourceManager{
 		//stoppableManager: stoppableManager,
 		config:          config,
@@ -167,7 +168,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 func (lrm *LockedResourceManager) Stop(deleteResources bool) error {
 	lrm.stoppableManager.Stop()
 	if deleteResources {
-		err := lrm.deleteResources()
+		err := lrm.deleteResources(context.TODO())
 		if err != nil {
 			log.Error(err, "unable to delete resources")
 			return err
@@ -248,10 +249,18 @@ func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatc
 	intersection = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Intersection(currentPatchSet, newPatchSet), newPatchMap)
 	rightDifference = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Difference(newPatchSet, currentPatchSet), newPatchMap)
 	same = currentPatchSet.IsEqual(newPatchSet)
-	//we also need to check intersection to see if there are differnces in the pacth definition
+	//we also need to check intersection to see if there are differences in the pacth definition
 	for _, patchID := range strset.Intersection(currentPatchSet, newPatchSet).List() {
-		currentPatch, _ := json.Marshal(currentPatchMap[patchID])
-		newPatch, _ := json.Marshal(newPatchMap[patchID])
+		currentPatch, err := json.Marshal(currentPatchMap[patchID])
+		if err != nil {
+			log.Error(err, "unable to Marshall", "currentPatch", currentPatchMap[patchID])
+			return false, leftDifference, intersection, rightDifference
+		}
+		newPatch, err := json.Marshal(newPatchMap[patchID])
+		if err != nil {
+			log.Error(err, "unable to Marshall", "newPatch", newPatchMap[patchID])
+			return false, leftDifference, intersection, rightDifference
+		}
 		if string(currentPatch) != string(newPatch) {
 			same = false
 			break
@@ -260,13 +269,13 @@ func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatc
 	return same, leftDifference, intersection, rightDifference
 }
 
-func (lrm *LockedResourceManager) deleteResources() error {
+func (lrm *LockedResourceManager) deleteResources(context context.Context) error {
 	reconcilerBase := util.NewReconcilerBase(lrm.stoppableManager.GetClient(), lrm.stoppableManager.GetScheme(), lrm.stoppableManager.GetConfig(), lrm.stoppableManager.GetEventRecorderFor("resource-deleter"))
 	for _, resource := range lrm.GetResources() {
 		gvk := resource.Unstructured.GetObjectKind().GroupVersionKind()
 		groupVersion := schema.GroupVersion{Group: gvk.Group, Version: gvk.Version}
 		lrm.stoppableManager.GetScheme().AddKnownTypes(groupVersion, &resource.Unstructured)
-		err := reconcilerBase.DeleteResourceIfExists(&resource.Unstructured)
+		err := reconcilerBase.DeleteResourceIfExists(context, &resource.Unstructured)
 		if err != nil {
 			log.Error(err, "unable to delete", "resource", resource.Unstructured)
 			return err

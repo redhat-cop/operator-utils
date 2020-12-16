@@ -1,0 +1,24 @@
+# permissions for end users to edit templatedenforcingcrds.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: templatedenforcingcrd-editor-role
+rules:
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - templatedenforcingcrds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - templatedenforcingcrds/status
+  verbs:
+  - get

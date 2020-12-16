@@ -1,21 +1,31 @@
 package apis
 
-import "github.com/operator-framework/operator-sdk/pkg/status"
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+// +patchMergeKey=type
+// +patchStrategy=merge
+// +listType=map
+// +listMapKey=type
+type Conditions []metav1.Condition
 
 // EnforcingReconcileStatus represents the status of the last reconcile cycle. It's used to communicate success or failure and the error message
 type EnforcingReconcileStatus struct {
 
 	// ReconcileStatus this is the general status of the main reconciler
 	// +kubebuilder:validation:Optional
-	Conditions status.Conditions `json:"conditions,omitempty"`
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 
 	//LockedResourceStatuses contains the reconcile status for each of the managed resources
 	// +kubebuilder:validation:Optional
-	LockedResourceStatuses map[string]status.Conditions `json:"lockedResourceStatuses,omitempty"`
+	LockedResourceStatuses map[string]Conditions `json:"lockedResourceStatuses,omitempty"`
 
 	//LockedResourceStatuses contains the reconcile status for each of the managed resources
 	// +kubebuilder:validation:Optional
-	LockedPatchStatuses map[string]status.Conditions `json:"lockedPatchStatuses,omitempty"`
+	LockedPatchStatuses map[string]Conditions `json:"lockedPatchStatuses,omitempty"`
 }
 
 // EnforcingReconcileStatusAware represnt a CRD type that has been enabled with ReconcileStatus, it can then benefit of a series of utility methods.
@@ -29,21 +39,21 @@ func (in *EnforcingReconcileStatus) DeepCopyInto(out *EnforcingReconcileStatus) 
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make(status.Conditions, len(*in))
+		*out = make([]metav1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.LockedResourceStatuses != nil {
 		in, out := &in.LockedResourceStatuses, &out.LockedResourceStatuses
-		*out = make(map[string]status.Conditions, len(*in))
+		*out = make(map[string]Conditions, len(*in))
 		for key, val := range *in {
-			var outVal []status.Condition
+			var outVal []metav1.Condition
 			if val == nil {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = make(status.Conditions, len(*in))
+				*out = make([]metav1.Condition, len(*in))
 				for i := range *in {
 					(*in)[i].DeepCopyInto(&(*out)[i])
 				}

@@ -7,8 +7,6 @@ import (
 
 	"encoding/json"
 
-	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
-	"github.com/operator-framework/operator-sdk/pkg/status"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
@@ -19,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -37,15 +36,15 @@ type LockedResourceReconciler struct {
 	Resource     unstructured.Unstructured
 	ExcludePaths []string
 	util.ReconcilerBase
-	status         status.Conditions
+	status         []metav1.Condition
 	statusChange   chan<- event.GenericEvent
 	statusLock     sync.Mutex
-	parentObject   apis.Resource
+	parentObject   client.Object
 	creationFailed chan event.GenericEvent
 }
 
 // NewLockedObjectReconciler returns a new reconcile.Reconciler
-func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstructured, excludePaths []string, statusChange chan<- event.GenericEvent, parentObject apis.Resource) (*LockedResourceReconciler, error) {
+func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstructured, excludePaths []string, statusChange chan<- event.GenericEvent, parentObject client.Object) (*LockedResourceReconciler, error) {
 
 	reconciler := &LockedResourceReconciler{
 		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("controller_locked_object_"+apis.GetKeyLong(&object))),
@@ -55,20 +54,21 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 		parentObject:   parentObject,
 		statusLock:     sync.Mutex{},
 		creationFailed: make(chan event.GenericEvent),
-		status: status.Conditions([]status.Condition{{
-			Type:               status.ConditionType("Initializing"),
+		status: []metav1.Condition([]metav1.Condition{{
+			Type:               "Initializing",
 			LastTransitionTime: metav1.Now(),
-			Status:             corev1.ConditionTrue,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: object.GetGeneration(),
+			Reason:             "ReconcilerManagerRestarting",
 		}}),
 	}
 
-	err := reconciler.CreateOrUpdateResource(nil, "", object.DeepCopy())
+	err := reconciler.CreateOrUpdateResource(context.TODO(), nil, "", object.DeepCopy())
 	if err != nil {
 		log.Error(err, "unable to create or update", "resource", object)
-		reconciler.manageError(err)
+		reconciler.manageErrorNoInstance(err)
 		go func() {
 			reconciler.creationFailed <- event.GenericEvent{
-				Meta:   &object,
 				Object: &object,
 			}
 		}()
@@ -107,7 +107,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 }
 
 // Reconcile contains the reconcile logic for LockedResourceReconciler
-func (lor *LockedResourceReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (lor *LockedResourceReconciler) Reconcile(context context.Context, request reconcile.Request) (reconcile.Result, error) {
 	logrc.Info("reconcile called for", "object", apis.GetKeyLong(&lor.Resource), "request", request)
 	//err := lor.CreateOrUpdateResource(nil, "", &lor.Object)
 
@@ -116,51 +116,51 @@ func (lor *LockedResourceReconciler) Reconcile(request reconcile.Request) (recon
 	client, err := lor.GetDynamicClientOnUnstructured(lor.Resource)
 	if err != nil {
 		logrc.Error(err, "unable to get dynamicClient", "on object", lor.Resource)
-		return lor.manageError(err)
+		return lor.manageErrorNoInstance(err)
 	}
-	instance, err := client.Get(context.TODO(), lor.Resource.GetName(), v1.GetOptions{})
+	instance, err := client.Get(context, lor.Resource.GetName(), v1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// if not found we have to recreate it.
-			err = lor.CreateOrUpdateResource(nil, "", lor.Resource.DeepCopy())
+			err = lor.CreateOrUpdateResource(context, nil, "", lor.Resource.DeepCopy())
 			if err != nil {
 				logrc.Error(err, "unable to create or update", "object", lor.Resource)
-				return lor.manageError(err)
+				return lor.manageErrorNoInstance(err)
 			}
-			return lor.manageSuccess()
+			return lor.manageSuccessNoInstance()
 		}
 		// Error reading the object - requeue the request.
 		logrc.Error(err, "unable to lookup", "object", lor.Resource)
-		return lor.manageError(err)
+		return lor.manageError(instance, err)
 	}
 	logrc.V(1).Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
 	equal, err := lor.isEqual(instance)
 	if err != nil {
 		logrc.Error(err, "unable to determine if", "object", lor.Resource, "is equal to object", instance)
-		return lor.manageError(err)
+		return lor.manageError(instance, err)
 	}
 	if !equal {
 		logrc.V(1).Info("determined that resources are NOT equal")
 		patch, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
 		if err != nil {
 			logrc.Error(err, "unable to filter out ", "excluded paths", lor.ExcludePaths, "from object", lor.Resource)
-			return lor.manageError(err)
+			return lor.manageError(instance, err)
 		}
 		patchBytes, err := json.Marshal(patch)
 		if err != nil {
 			logrc.Error(err, "unable to marshall ", "object", patch)
-			return lor.manageError(err)
+			return lor.manageError(instance, err)
 		}
 		logrc.V(1).Info("executing", "patch", string(patchBytes), "on object", instance)
-		_, err = client.Patch(context.TODO(), instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		_, err = client.Patch(context, instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			logrc.Error(err, "unable to patch ", "object", instance, "with patch", string(patchBytes))
-			return lor.manageError(err)
+			return lor.manageError(instance, err)
 		}
-		return lor.manageSuccess()
+		return lor.manageSuccess(instance)
 	}
 	logrc.V(1).Info("determined that resources are equal")
-	return lor.manageSuccess()
+	return lor.manageSuccess(instance)
 }
 
 func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured) (bool, error) {
@@ -190,25 +190,25 @@ type resourceModifiedPredicate struct {
 
 // Update implements default UpdateEvent filter for validating resource version change
 func (p *resourceModifiedPredicate) Update(e event.UpdateEvent) bool {
-	if e.MetaNew.GetNamespace() == p.namespace && e.MetaNew.GetName() == p.name {
+	if e.ObjectNew.GetNamespace() == p.namespace && e.ObjectNew.GetName() == p.name {
 		return true
 	}
 	return false
 }
 
 func (p *resourceModifiedPredicate) Create(e event.CreateEvent) bool {
-	if e.Meta.GetNamespace() == p.namespace && e.Meta.GetName() == p.name {
+	if e.Object.GetNamespace() == p.namespace && e.Object.GetName() == p.name {
 		return true
 	}
 	return false
 }
 
 func (p *resourceModifiedPredicate) Delete(e event.DeleteEvent) bool {
-	if e.Meta.GetNamespace() == p.namespace && e.Meta.GetName() == p.name {
+	if e.Object.GetNamespace() == p.namespace && e.Object.GetName() == p.name {
 		// we return true only if the enclosing namespace is not also being deleted
-		if e.Meta.GetNamespace() != "" {
+		if e.Object.GetNamespace() != "" {
 			namespace := corev1.Namespace{}
-			err := p.lrr.GetClient().Get(context.TODO(), types.NamespacedName{Name: e.Meta.GetNamespace()}, &namespace)
+			err := p.lrr.GetClient().Get(context.TODO(), types.NamespacedName{Name: e.Object.GetNamespace()}, &namespace)
 			if err != nil {
 				logrc.Error(err, "unable to retrieve ", "namespace", "e.Meta.GetNamespace()")
 				return false
@@ -222,44 +222,69 @@ func (p *resourceModifiedPredicate) Delete(e event.DeleteEvent) bool {
 	return false
 }
 
-func (lor *LockedResourceReconciler) manageError(err error) (reconcile.Result, error) {
-	condition := status.Condition{
-		Type:               "ReconcileError",
+func (lor *LockedResourceReconciler) manageError(instance *unstructured.Unstructured, err error) (reconcile.Result, error) {
+	condition := metav1.Condition{
+		Type:               apis.ReconcileError,
 		LastTransitionTime: metav1.Now(),
 		Message:            err.Error(),
-		Reason:             astatus.FailedReason,
-		Status:             corev1.ConditionTrue,
+		Reason:             apis.ReconcileErrorReason,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: instance.GetGeneration(),
 	}
-	lor.setStatus(status.NewConditions(condition))
+	lor.setStatus(apis.AddOrReplaceCondition(condition, lor.GetStatus()))
 	return reconcile.Result{}, err
 }
 
-func (lor *LockedResourceReconciler) manageSuccess() (reconcile.Result, error) {
-	condition := status.Condition{
-		Type:               "ReconcileSuccess",
+func (lor *LockedResourceReconciler) manageErrorNoInstance(err error) (reconcile.Result, error) {
+	condition := metav1.Condition{
+		Type:               apis.ReconcileError,
 		LastTransitionTime: metav1.Now(),
-		Message:            astatus.SuccessfulMessage,
-		Reason:             astatus.SuccessfulReason,
-		Status:             corev1.ConditionTrue,
+		Message:            err.Error(),
+		Reason:             apis.ReconcileErrorReason,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: 0,
 	}
-	lor.setStatus(status.NewConditions(condition))
+	lor.setStatus(apis.AddOrReplaceCondition(condition, lor.GetStatus()))
+	return reconcile.Result{}, err
+}
+
+func (lor *LockedResourceReconciler) manageSuccess(instance *unstructured.Unstructured) (reconcile.Result, error) {
+	condition := metav1.Condition{
+		Type:               apis.ReconcileSuccess,
+		LastTransitionTime: metav1.Now(),
+		Reason:             apis.ReconcileSuccessReason,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: instance.GetGeneration(),
+	}
+	lor.setStatus(apis.AddOrReplaceCondition(condition, lor.GetStatus()))
 	return reconcile.Result{}, nil
 }
 
-func (lor *LockedResourceReconciler) setStatus(status status.Conditions) {
+func (lor *LockedResourceReconciler) manageSuccessNoInstance() (reconcile.Result, error) {
+	condition := metav1.Condition{
+		Type:               apis.ReconcileSuccess,
+		LastTransitionTime: metav1.Now(),
+		Reason:             apis.ReconcileSuccessReason,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: 0,
+	}
+	lor.setStatus(apis.AddOrReplaceCondition(condition, lor.GetStatus()))
+	return reconcile.Result{}, nil
+}
+
+func (lor *LockedResourceReconciler) setStatus(status []metav1.Condition) {
 	lor.statusLock.Lock()
 	defer lor.statusLock.Unlock()
 	lor.status = status
 	if lor.statusChange != nil {
 		lor.statusChange <- event.GenericEvent{
-			Meta:   lor.parentObject,
 			Object: lor.parentObject,
 		}
 	}
 }
 
 // GetStatus returns the latest reconcile status
-func (lor *LockedResourceReconciler) GetStatus() status.Conditions {
+func (lor *LockedResourceReconciler) GetStatus() []metav1.Condition {
 	lor.statusLock.Lock()
 	defer lor.statusLock.Unlock()
 	status := lor.status

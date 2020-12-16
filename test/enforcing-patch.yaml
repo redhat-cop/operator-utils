@@ -1,4 +1,4 @@
-apiVersion: example.io/v1alpha1
+apiVersion: operator-utils.example.io/v1alpha1
 kind: EnforcingPatch
 metadata:
   name: test-field-patch

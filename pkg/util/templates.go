@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi/validation"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"k8s.io/kubectl/pkg/util/openapi/validation"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
 

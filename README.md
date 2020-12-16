@@ -342,63 +342,87 @@ if err != nil {
 }
 ```  
 
-## Local Development
+## Deployment
 
-Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
+### Deploying with Helm
 
-```shell
-go mod download
-```
-
-optionally:
+Here are the instructions to install the latest release with Helm.
 
 ```shell
-go mod vendor
+oc new-project operator-utils
+helm repo add operator-utils https://redhat-cop.github.io/operator-utils
+helm repo update
+helm install operator-utils operator-utils/operator-utils
 ```
 
-Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), run the operator locally:
+This can later be updated with the following commands:
 
 ```shell
-oc apply -f deploy/crds
-OPERATOR_NAME='example-operator' operator-sdk --verbose run local --watch-namespace "" --operator-flags="--zap-level=debug"
+helm repo update
+helm upgrade operator-utils operator-utils/operator-utils
 ```
 
-## Testing
+## Development
 
-### EnforcingCRD controller testing
+## Running the operator locally
 
 ```shell
-oc new-project test-enforcingcrd
-oc apply -f test/enforcing_cr.yaml -n test-enforcingcrd
-oc apply -f test/failing-enforcing_cr.yaml -n test-enforcingcrd
+make install
+oc new-project operator-utils-local
+oc apply -f config/rbac/role.yaml -n operator-utils-local
+oc apply -f config/rbac/role_binding.yaml -n operator-utils-local
+export token=export token=$(oc serviceaccounts get-token 'default' -n operator-utils-local)
+oc login --token ${token}
+make run ENABLE_WEBHOOKS=false
 ```
 
-### TemplatedEnforcingCRD controller testing
+## Building/Pushing the operator image
 
 ```shell
-oc new-project test-templatedenforcingcrd
-oc apply -f test/templatedenforcing_cr.yaml -n test-templatedenforcingcrd
+export repo=raffaelespazzoli #replace with yours
+make docker-build IMG=quay.io/$repo/operator-utils:latest
+make docker-push IMG=quay.io/$repo/operator-utils:latest
 ```
 
-### Enforcing-patch test
+## Deploy to OLM via bundle
 
 ```shell
-oc new-project test-enforcing-patch
-oc create sa test -n test-enforcing-patch
-oc apply -f test/enforcing-patch.yaml -n test-enforcing-patch
+make manifests
+make bundle IMG=quay.io/$repo/operator-utils:latest
+operator-sdk bundle validate ./bundle --select-optional name=operatorhub
+make bundle-build BUNDLE_IMG=quay.io/$repo/operator-utils-controller-bundle:latest
+podman push quay.io/$repo/operator-utils-controller-bundle:latest
+operator-sdk bundle validate quay.io/$repo/operator-utils-controller-bundle:latest --select-optional name=operatorhub
+oc new-project operator-utils
+operator-sdk cleanup operator-utils -n operator-utils
+operator-sdk run bundle --install-mode AllNamespaces -n operator-utils quay.io/$repo/operator-utils-controller-bundle:latest
 ```
 
-## License
-
-This project is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-## Release Process
-
-To release execute the following:
+## Releasing
 
 ```shell
-git tag -a "<version>" -m "release <version>"
-git push upstream <version>
+git tag -a "<tagname>" -m "<commit message>"
+git push upstream <tagname>
 ```
 
-use this version format: vM.m.z
+If you need to remove a release:
+
+```shell
+git tag -d <tagname>
+git push upstream --delete <tagname>
+```
+
+If you need to "move" a release to the current main
+
+```shell
+git tag -f <tagname>
+git push upstream -f <tagname>
+```
+
+### Cleaning up
+
+```shell
+operator-sdk cleanup operator-utils -n operator-utils
+oc delete operatorgroup operator-sdk-og
+oc delete catalogsource operator-utils-catalog
+```

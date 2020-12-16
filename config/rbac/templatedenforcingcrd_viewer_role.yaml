@@ -1,0 +1,20 @@
+# permissions for end users to view templatedenforcingcrds.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: templatedenforcingcrd-viewer-role
+rules:
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - templatedenforcingcrds
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - templatedenforcingcrds/status
+  verbs:
+  - get

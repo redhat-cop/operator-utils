@@ -1,0 +1,7 @@
+apiVersion: operator-utils.example.io/v1alpha1
+kind: EnforcingCRD
+metadata:
+  name: enforcingcrd-sample
+spec:
+  # Add fields here
+  foo: bar

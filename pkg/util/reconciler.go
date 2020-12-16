@@ -18,14 +18,10 @@ package util
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"text/template"
 
-	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
-	"github.com/operator-framework/operator-sdk/pkg/status"
 	apis "github.com/redhat-cop/operator-utils/pkg/util/apis"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -177,7 +173,7 @@ func (r *ReconcilerBase) getAPIReourceForUnstructured(obj unstructured.Unstructu
 // CreateOrUpdateResource creates a resource if it doesn't exist, and updates (overwrites it), if it exist
 // if owner is not nil, the owner field os set
 // if namespace is not "", the namespace field of the object is overwritten with the passed value
-func (r *ReconcilerBase) CreateOrUpdateResource(owner apis.Resource, namespace string, obj apis.Resource) error {
+func (r *ReconcilerBase) CreateOrUpdateResource(context context.Context, owner client.Object, namespace string, obj client.Object) error {
 
 	if owner != nil {
 		_ = controllerutil.SetControllerReference(owner, obj, r.GetScheme())
@@ -186,15 +182,16 @@ func (r *ReconcilerBase) CreateOrUpdateResource(owner apis.Resource, namespace s
 		obj.SetNamespace(namespace)
 	}
 
-	obj2 := obj.DeepCopyObject()
+	obj2 := &unstructured.Unstructured{}
+	obj2.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
 
-	err := r.GetClient().Get(context.TODO(), types.NamespacedName{
+	err := r.GetClient().Get(context, types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 	}, obj2)
 
 	if apierrors.IsNotFound(err) {
-		err = r.GetClient().Create(context.TODO(), obj)
+		err = r.GetClient().Create(context, obj)
 		if err != nil {
 			log.Error(err, "unable to create object", "object", obj)
 			return err
@@ -202,14 +199,8 @@ func (r *ReconcilerBase) CreateOrUpdateResource(owner apis.Resource, namespace s
 		return nil
 	}
 	if err == nil {
-		obj3, ok := obj2.(metav1.Object)
-		if !ok {
-			err := errors.New("unable to convert to metav1.Object")
-			log.Error(err, "unable to convert to metav1.Object", "object", obj2)
-			return err
-		}
-		obj.SetResourceVersion(obj3.GetResourceVersion())
-		err = r.GetClient().Update(context.TODO(), obj)
+		obj.SetResourceVersion(obj2.GetResourceVersion())
+		err = r.GetClient().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update object", "object", obj)
 			return err
@@ -222,9 +213,9 @@ func (r *ReconcilerBase) CreateOrUpdateResource(owner apis.Resource, namespace s
 }
 
 // CreateOrUpdateResources operates as CreateOrUpdate, but on an array of resources
-func (r *ReconcilerBase) CreateOrUpdateResources(owner apis.Resource, namespace string, objs []apis.Resource) error {
+func (r *ReconcilerBase) CreateOrUpdateResources(context context.Context, owner client.Object, namespace string, objs []client.Object) error {
 	for _, obj := range objs {
-		err := r.CreateOrUpdateResource(owner, namespace, obj)
+		err := r.CreateOrUpdateResource(context, owner, namespace, obj)
 		if err != nil {
 			return err
 		}
@@ -233,9 +224,9 @@ func (r *ReconcilerBase) CreateOrUpdateResources(owner apis.Resource, namespace 
 }
 
 // CreateOrUpdateUnstructuredResources operates as CreateOrUpdate, but on an array of unstructured.Unstructured
-func (r *ReconcilerBase) CreateOrUpdateUnstructuredResources(owner apis.Resource, namespace string, objs []unstructured.Unstructured) error {
+func (r *ReconcilerBase) CreateOrUpdateUnstructuredResources(context context.Context, owner client.Object, namespace string, objs []unstructured.Unstructured) error {
 	for _, obj := range objs {
-		err := r.CreateOrUpdateResource(owner, namespace, &obj)
+		err := r.CreateOrUpdateResource(context, owner, namespace, &obj)
 		if err != nil {
 			return err
 		}
@@ -244,8 +235,8 @@ func (r *ReconcilerBase) CreateOrUpdateUnstructuredResources(owner apis.Resource
 }
 
 // DeleteResourceIfExists deletes an existing resource. It doesn't fail if the resource does not exist
-func (r *ReconcilerBase) DeleteResourceIfExists(obj apis.Resource) error {
-	err := r.GetClient().Delete(context.TODO(), obj)
+func (r *ReconcilerBase) DeleteResourceIfExists(context context.Context, obj client.Object) error {
+	err := r.GetClient().Delete(context, obj)
 	if err != nil && !apierrors.IsNotFound(err) {
 		log.Error(err, "unable to delete object ", "object", obj)
 		return err
@@ -254,9 +245,9 @@ func (r *ReconcilerBase) DeleteResourceIfExists(obj apis.Resource) error {
 }
 
 // DeleteResourcesIfExist operates like DeleteResources, but on an arrays of resources
-func (r *ReconcilerBase) DeleteResourcesIfExist(objs []apis.Resource) error {
+func (r *ReconcilerBase) DeleteResourcesIfExist(context context.Context, objs []client.Object) error {
 	for _, obj := range objs {
-		err := r.DeleteResourceIfExists(obj)
+		err := r.DeleteResourceIfExists(context, obj)
 		if err != nil {
 			return err
 		}
@@ -265,9 +256,9 @@ func (r *ReconcilerBase) DeleteResourcesIfExist(objs []apis.Resource) error {
 }
 
 // DeleteUnstructuredResources operates like DeleteResources, but on an arrays of unstructured.Unstructured
-func (r *ReconcilerBase) DeleteUnstructuredResources(objs []unstructured.Unstructured) error {
+func (r *ReconcilerBase) DeleteUnstructuredResources(context context.Context, objs []unstructured.Unstructured) error {
 	for _, obj := range objs {
-		err := r.DeleteResourceIfExists(&obj)
+		err := r.DeleteResourceIfExists(context, &obj)
 		if err != nil {
 			return err
 		}
@@ -278,7 +269,7 @@ func (r *ReconcilerBase) DeleteUnstructuredResources(objs []unstructured.Unstruc
 // CreateResourceIfNotExists create a resource if it doesn't already exists. If the resource exists it is left untouched and the functin does not fails
 // if owner is not nil, the owner field os set
 // if namespace is not "", the namespace field of the object is overwritten with the passed value
-func (r *ReconcilerBase) CreateResourceIfNotExists(owner apis.Resource, namespace string, obj apis.Resource) error {
+func (r *ReconcilerBase) CreateResourceIfNotExists(context context.Context, owner client.Object, namespace string, obj client.Object) error {
 	if owner != nil {
 		_ = controllerutil.SetControllerReference(owner, obj, r.GetScheme())
 	}
@@ -286,7 +277,7 @@ func (r *ReconcilerBase) CreateResourceIfNotExists(owner apis.Resource, namespac
 		obj.SetNamespace(namespace)
 	}
 
-	err := r.GetClient().Create(context.TODO(), obj)
+	err := r.GetClient().Create(context, obj)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		log.Error(err, "unable to create object ", "object", obj)
 		return err
@@ -295,9 +286,9 @@ func (r *ReconcilerBase) CreateResourceIfNotExists(owner apis.Resource, namespac
 }
 
 // CreateResourcesIfNotExist operates as CreateResourceIfNotExists, but on an array of resources
-func (r *ReconcilerBase) CreateResourcesIfNotExist(owner apis.Resource, namespace string, objs []apis.Resource) error {
+func (r *ReconcilerBase) CreateResourcesIfNotExist(context context.Context, owner client.Object, namespace string, objs []client.Object) error {
 	for _, obj := range objs {
-		err := r.CreateResourceIfNotExists(owner, namespace, obj)
+		err := r.CreateResourceIfNotExists(context, owner, namespace, obj)
 		if err != nil {
 			return err
 		}
@@ -306,9 +297,9 @@ func (r *ReconcilerBase) CreateResourcesIfNotExist(owner apis.Resource, namespac
 }
 
 // CreateUnstructuredResourcesIfNotExist operates as CreateResourceIfNotExists, but on an array of unstructured.Unstructured
-func (r *ReconcilerBase) CreateUnstructuredResourcesIfNotExist(owner apis.Resource, namespace string, objs []unstructured.Unstructured) error {
+func (r *ReconcilerBase) CreateUnstructuredResourcesIfNotExist(context context.Context, owner client.Object, namespace string, objs []unstructured.Unstructured) error {
 	for _, obj := range objs {
-		err := r.CreateResourceIfNotExists(owner, namespace, &obj)
+		err := r.CreateResourceIfNotExists(context, owner, namespace, &obj)
 		if err != nil {
 			return err
 		}
@@ -317,14 +308,14 @@ func (r *ReconcilerBase) CreateUnstructuredResourcesIfNotExist(owner apis.Resour
 }
 
 // CreateOrUpdateTemplatedResources processes an initialized template expecting an array of objects as a result and the processes them with the CreateOrUpdate function
-func (r *ReconcilerBase) CreateOrUpdateTemplatedResources(owner apis.Resource, namespace string, data interface{}, template *template.Template) error {
+func (r *ReconcilerBase) CreateOrUpdateTemplatedResources(context context.Context, owner client.Object, namespace string, data interface{}, template *template.Template) error {
 	objs, err := ProcessTemplateArray(data, template)
 	if err != nil {
 		log.Error(err, "error creating manifest from template")
 		return err
 	}
 	for _, obj := range objs {
-		err = r.CreateOrUpdateResource(owner, namespace, &obj)
+		err = r.CreateOrUpdateResource(context, owner, namespace, &obj)
 		if err != nil {
 			return err
 		}
@@ -333,14 +324,14 @@ func (r *ReconcilerBase) CreateOrUpdateTemplatedResources(owner apis.Resource, n
 }
 
 // CreateIfNotExistTemplatedResources processes an initialized template expecting an array of objects as a result and then processes them with the CreateResourceIfNotExists function
-func (r *ReconcilerBase) CreateIfNotExistTemplatedResources(owner apis.Resource, namespace string, data interface{}, template *template.Template) error {
+func (r *ReconcilerBase) CreateIfNotExistTemplatedResources(context context.Context, owner client.Object, namespace string, data interface{}, template *template.Template) error {
 	objs, err := ProcessTemplateArray(data, template)
 	if err != nil {
 		log.Error(err, "error creating manifest from template")
 		return err
 	}
 	for _, obj := range objs {
-		err = r.CreateResourceIfNotExists(owner, namespace, &obj)
+		err = r.CreateResourceIfNotExists(context, owner, namespace, &obj)
 		if err != nil {
 			return err
 		}
@@ -349,14 +340,14 @@ func (r *ReconcilerBase) CreateIfNotExistTemplatedResources(owner apis.Resource,
 }
 
 // DeleteTemplatedResources processes an initialized template expecting an array of objects as a result and then processes them with the Delete function
-func (r *ReconcilerBase) DeleteTemplatedResources(data interface{}, template *template.Template) error {
+func (r *ReconcilerBase) DeleteTemplatedResources(context context.Context, data interface{}, template *template.Template) error {
 	objs, err := ProcessTemplateArray(data, template)
 	if err != nil {
 		log.Error(err, "error creating manifest from template")
 		return err
 	}
 	for _, obj := range objs {
-		err = r.DeleteResourceIfExists(&obj)
+		err = r.DeleteResourceIfExists(context, &obj)
 		if err != nil {
 			return err
 		}
@@ -365,21 +356,22 @@ func (r *ReconcilerBase) DeleteTemplatedResources(data interface{}, template *te
 }
 
 //ManageError will take care of the following:
-// 1. generate a warning event attched to the passed object
-// 2. set the status of the passed to a error condition if the object implements the apis.ConditionsStatusAware interface
+// 1. generate a warning event attached to the passed CR
+// 2. set the status of the passed CR to a error condition if the object implements the apis.ConditionsStatusAware interface
 // 3. return a reconcile status with the passed error
-func (r *ReconcilerBase) ManageError(obj apis.Resource, issue error) (reconcile.Result, error) {
+func (r *ReconcilerBase) ManageError(context context.Context, obj client.Object, issue error) (reconcile.Result, error) {
 	r.GetRecorder().Event(obj, "Warning", "ProcessingError", issue.Error())
-	if reconcileStatusAware, updateStatus := (obj).(apis.ConditionsStatusAware); updateStatus {
-		condition := status.Condition{
-			Type:               "ReconcileError",
+	if conditionsAware, updateStatus := (obj).(apis.ConditionsAware); updateStatus {
+		condition := metav1.Condition{
+			Type:               apis.ReconcileError,
 			LastTransitionTime: metav1.Now(),
+			ObservedGeneration: obj.GetGeneration(),
 			Message:            issue.Error(),
-			Reason:             astatus.FailedReason,
-			Status:             corev1.ConditionTrue,
+			Reason:             apis.ReconcileErrorReason,
+			Status:             metav1.ConditionTrue,
 		}
-		reconcileStatusAware.SetReconcileStatus(status.NewConditions(condition))
-		err := r.GetClient().Status().Update(context.Background(), obj)
+		apis.SetCondition(condition, conditionsAware)
+		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
 			return reconcile.Result{}, err
@@ -391,17 +383,17 @@ func (r *ReconcilerBase) ManageError(obj apis.Resource, issue error) (reconcile.
 }
 
 // ManageSuccess will update the status of the CR and return a successful reconcile result
-func (r *ReconcilerBase) ManageSuccess(obj apis.Resource) (reconcile.Result, error) {
-	if reconcileStatusAware, updateStatus := (obj).(apis.ConditionsStatusAware); updateStatus {
-		condition := status.Condition{
-			Type:               "ReconcileSuccess",
+func (r *ReconcilerBase) ManageSuccess(context context.Context, obj client.Object) (reconcile.Result, error) {
+	if conditionsAware, updateStatus := (obj).(apis.ConditionsAware); updateStatus {
+		condition := metav1.Condition{
+			Type:               apis.ReconcileSuccess,
 			LastTransitionTime: metav1.Now(),
-			Message:            astatus.SuccessfulMessage,
-			Reason:             astatus.SuccessfulReason,
-			Status:             corev1.ConditionTrue,
+			ObservedGeneration: obj.GetGeneration(),
+			Reason:             apis.ReconcileSuccessReason,
+			Status:             metav1.ConditionTrue,
 		}
-		reconcileStatusAware.SetReconcileStatus(status.NewConditions(condition))
-		err := r.GetClient().Status().Update(context.Background(), obj)
+		apis.SetCondition(condition, conditionsAware)
+		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
 			return reconcile.Result{}, err
