@@ -11,6 +11,9 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+CHART_REPO_URL ?= http://example.com
+HELM_REPO_DEST ?= /tmp/gh-pages
+
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -121,3 +124,23 @@ bundle: manifests kustomize
 .PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+# Generate helm chart
+helmchart: kustomize
+	mkdir -p ./charts/operator-utils/templates
+	cp ./config/helmchart/templates/* ./charts/operator-utils/templates
+	$(KUSTOMIZE) build ./config/helmchart | sed 's/release-namespace/{{.Release.namespace}}/' > ./charts/operator-utils/templates/rbac.yaml
+	version=${VERSION} envsubst < ./config/helmchart/Chart.yaml.tpl  > ./charts/operator-utils/Chart.yaml
+	version=${VERSION} image_repo=$${IMG%:*} envsubst < ./config/helmchart/values.yaml.tpl  > ./charts/operator-utils/values.yaml
+	helm lint ./charts/operator-utils	
+
+helmchart-repo: helmchart
+	mkdir -p ${HELM_REPO_DEST}/operator-utils
+	helm package -d ${HELM_REPO_DEST}/operator-utils ./charts/operator-utils
+	helm repo index --url ${CHART_REPO_URL} ${HELM_REPO_DEST}
+
+helmchart-repo-push: helmchart-repo	
+	git -C ${HELM_REPO_DEST} add .
+	git -C ${HELM_REPO_DEST} status
+	git -C ${HELM_REPO_DEST} commit -m "Release ${VERSION}"
+	git -C ${HELM_REPO_DEST} push origin "gh-pages"	
