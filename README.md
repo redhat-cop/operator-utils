@@ -374,7 +374,7 @@ make install
 oc new-project operator-utils-local
 oc apply -f config/rbac/role.yaml -n operator-utils-local
 oc apply -f config/rbac/role_binding.yaml -n operator-utils-local
-export token=export token=$(oc serviceaccounts get-token 'default' -n operator-utils-local)
+export token=$(oc serviceaccounts get-token 'default' -n operator-utils-local)
 oc login --token ${token}
 make run ENABLE_WEBHOOKS=false
 ```
