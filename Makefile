@@ -1,7 +1,7 @@
 # Current Operator version
 VERSION ?= 0.0.1
 # Default bundle image tag
-BUNDLE_IMG ?= controller-bundle:$(VERSION)
+BUNDLE_IMG ?= bundle:$(VERSION)
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
@@ -10,6 +10,8 @@ ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+
+OPERATOR_NAME ?= $(basename `pwd`) 
 
 CHART_REPO_URL ?= http://example.com
 HELM_REPO_DEST ?= /tmp/gh-pages
@@ -127,16 +129,16 @@ bundle-build:
 
 # Generate helm chart
 helmchart: kustomize
-	mkdir -p ./charts/operator-utils/templates
-	cp ./config/helmchart/templates/* ./charts/operator-utils/templates
-	$(KUSTOMIZE) build ./config/helmchart | sed 's/release-namespace/{{.Release.namespace}}/' > ./charts/operator-utils/templates/rbac.yaml
-	version=${VERSION} envsubst < ./config/helmchart/Chart.yaml.tpl  > ./charts/operator-utils/Chart.yaml
-	version=${VERSION} image_repo=$${IMG%:*} envsubst < ./config/helmchart/values.yaml.tpl  > ./charts/operator-utils/values.yaml
-	helm lint ./charts/operator-utils	
+	mkdir -p ./charts/${OPERATOR_NAME}/templates
+	cp ./config/helmchart/templates/* ./charts/${OPERATOR_NAME}/templates
+	$(KUSTOMIZE) build ./config/helmchart | sed 's/release-namespace/{{.Release.namespace}}/' > ./charts/${OPERATOR_NAME}/templates/rbac.yaml
+	version=${VERSION} envsubst < ./config/helmchart/Chart.yaml.tpl  > ./charts/${OPERATOR_NAME}/Chart.yaml
+	version=${VERSION} image_repo=$${IMG%:*} envsubst < ./config/helmchart/values.yaml.tpl  > ./charts/${OPERATOR_NAME}/values.yaml
+	helm lint ./charts/${OPERATOR_NAME}	
 
 helmchart-repo: helmchart
-	mkdir -p ${HELM_REPO_DEST}/operator-utils
-	helm package -d ${HELM_REPO_DEST}/operator-utils ./charts/operator-utils
+	mkdir -p ${HELM_REPO_DEST}/${OPERATOR_NAME}
+	helm package -d ${HELM_REPO_DEST}/${OPERATOR_NAME} ./charts/${OPERATOR_NAME}
 	helm repo index --url ${CHART_REPO_URL} ${HELM_REPO_DEST}
 
 helmchart-repo-push: helmchart-repo	

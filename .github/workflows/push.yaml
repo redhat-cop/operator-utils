@@ -103,11 +103,11 @@ jobs:
         context: .
         file: ./bundle.Dockerfile
         push: true
-        tags: "quay.io/${{ github.repository_owner }}/${{ env.REPOSITORY_NAME }}-controller-bundle:${{ env.BUNDLE_IMAGE_TAG }}" 
+        tags: "quay.io/${{ github.repository_owner }}/${{ env.REPOSITORY_NAME }}-bundle:${{ env.BUNDLE_IMAGE_TAG }}" 
 
     - name: "Verify bundle image"
       shell: bash
-      run: operator-sdk bundle validate quay.io/${{ github.repository_owner }}/$(basename $GITHUB_REPOSITORY)-controller-bundle:${BUNDLE_IMAGE_TAG} --select-optional name=operatorhub    
+      run: operator-sdk bundle validate quay.io/${{ github.repository_owner }}/$(basename $GITHUB_REPOSITORY)-bundle:${BUNDLE_IMAGE_TAG} --select-optional name=operatorhub    
       
   release-helm-chart:
     name: Helm Chart Release      

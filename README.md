@@ -393,12 +393,12 @@ make docker-push IMG=quay.io/$repo/operator-utils:latest
 make manifests
 make bundle IMG=quay.io/$repo/operator-utils:latest
 operator-sdk bundle validate ./bundle --select-optional name=operatorhub
-make bundle-build BUNDLE_IMG=quay.io/$repo/operator-utils-controller-bundle:latest
-podman push quay.io/$repo/operator-utils-controller-bundle:latest
-operator-sdk bundle validate quay.io/$repo/operator-utils-controller-bundle:latest --select-optional name=operatorhub
+make bundle-build BUNDLE_IMG=quay.io/$repo/operator-utils-bundle:latest
+podman push quay.io/$repo/operator-utils-bundle:latest
+operator-sdk bundle validate quay.io/$repo/operator-utils-bundle:latest --select-optional name=operatorhub
 oc new-project operator-utils
 operator-sdk cleanup operator-utils -n operator-utils
-operator-sdk run bundle --install-mode AllNamespaces -n operator-utils quay.io/$repo/operator-utils-controller-bundle:latest
+operator-sdk run bundle --install-mode AllNamespaces -n operator-utils quay.io/$repo/operator-utils-bundle:latest
 ```
 
 ## Releasing

@@ -9,7 +9,7 @@ import (
 // +k8s:openapi-gen=true
 type Patch struct {
 	//ID represents a unique Identifier for this patch
-	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Required
 	ID string `json:"id"`
 	// SourceObject refs is an arrays of refereces to source objects that will be used as input for the template processing
 	// +kubebuilder:validation:Optional
