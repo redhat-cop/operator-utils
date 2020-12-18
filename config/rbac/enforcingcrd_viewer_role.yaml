@@ -1,0 +1,20 @@
+# permissions for end users to view enforcingcrds.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: enforcingcrd-viewer-role
+rules:
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingcrds
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingcrds/status
+  verbs:
+  - get

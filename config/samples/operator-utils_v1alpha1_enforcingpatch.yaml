@@ -1,0 +1,7 @@
+apiVersion: operator-utils.example.io/v1alpha1
+kind: EnforcingPatch
+metadata:
+  name: enforcingpatch-sample
+spec:
+  # Add fields here
+  foo: bar

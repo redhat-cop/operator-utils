@@ -1,0 +1,20 @@
+# permissions for end users to view enforcingpatches.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: enforcingpatch-viewer-role
+rules:
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingpatches
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingpatches/status
+  verbs:
+  - get

@@ -1,0 +1,11 @@
+domain: example.io
+layout: go.kubebuilder.io/v2
+projectName: operator-utils
+repo: github.com/redhat-cop/operator-utils
+resources:
+- group: operator-utils
+  kind: MyCRD
+  version: v1alpha1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}

@@ -4,6 +4,8 @@
 
 This library layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
 
+*NOTICE* versions of this library up to `v0.3.7` are compatible with [operator-sdk](https://github.com/operator-framework/operator-sdk) `0.x`, starting from version v0.4.0 this library will be compatible only with [operator-sdk](https://github.com/operator-framework/operator-sdk) 1.x.
+
 ## Scope of this library
 
 This library covers three main areas:
@@ -34,39 +36,39 @@ import "github.com/redhat-cop/operator-utils/pkg/util"
 ...
 type MyReconciler struct {
   util.ReconcilerBase
+  Log logr.Logger
   ... other optional fields ...
 }
+```
 
-...
+in main.go change like this
 
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
- return &ReconcileMyCRD{
-  ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetRecorder(controllerName)),
- }
-}
+```go
+  if err = (&controllers.MyReconciler{
+    ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("My_controller")),
+    Log:            ctrl.Log.WithName("controllers").WithName("My"),
+  }).SetupWithManager(mgr); err != nil {
+    setupLog.Error(err, "unable to create controller", "controller", "My")
+    os.Exit(1)
+  }
 ```
 
 If you want status management, add this to your CRD:
 
 ```go
-import "github.com/operator-framework/operator-sdk/pkg/status"
-
-...
-
-
-// +k8s:openapi-gen=true
-type MyCRDStatus struct {
- Conditions status.Conditions `json:"conditions"`
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=type
+  Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
-...
-
-func (m *MyCRD) GetReconcileStatus() status.Conditions {
+func (m *MyCRD) GetConditions() []metav1.Condition {
   return m.Status.Conditions
 }
 
-func (m *MyCRD) SetReconcileStatus(reconcileStatus status.Conditions) {
-  m.Status.Conditions = reconcileStatus
+func (m *MyCRD) SetConditions(conditions []metav1.Condition) {
+  m.Status.Conditions = conditions
 }
 
 ```
@@ -202,7 +204,7 @@ initialization...
 (optional) finalization...
 Phase1 ... calculate a set of resources to be enforced -> LockedResources
 
-  err = r.UpdateLockedResources(instance, lockedResources, ...)
+  err = r.UpdateLockedResources(context,instance, lockedResources, ...)
   if err != nil {
     log.Error(err, "unable to update locked resources")
     return r.ManageError(instance, err)
@@ -253,12 +255,12 @@ A patch is defined as follows:
 
 ```golang
 type LockedPatch struct {
-  ID               string
-  SourceObjectRefs []corev1.ObjectReference
-  TargetObjectRef  corev1.ObjectReference
-  PatchType        types.PatchType
-  PatchTemplate    string
-  Template         template.Template
+  ID               string                   `json:"id,omitempty"`
+  SourceObjectRefs []corev1.ObjectReference `json:"sourceObjectRefs,omitempty"`
+  TargetObjectRef  corev1.ObjectReference   `json:"targetObjectRef,omitempty"`
+  PatchType        types.PatchType          `json:"patchType,omitempty"`
+  PatchTemplate    string                   `json:"patchTemplate,omitempty"`
+  Template         template.Template        `json:"-"`
 }
 ```
 
@@ -270,7 +272,7 @@ validation...
 initialization...
 Phase1 ... calculate a set of patches to be enforced -> LockedPatches
 
-  err = r.UpdateLockedResources(instance, ..., lockedPatches...)
+  err = r.UpdateLockedResources(context, instance, ..., lockedPatches...)
   if err != nil {
     log.Error(err, "unable to update locked resources")
     return r.ManageError(instance, err)
@@ -299,7 +301,8 @@ if err != nil {
   log.Error(err, "unable to process templates with param")
   return err
 }
-```  
+```
+
 The `GetLockedResourcesFromTemplates` will validate the input as follows:
 
 1. check that the passed template is valid
@@ -342,63 +345,87 @@ if err != nil {
 }
 ```  
 
-## Local Development
+## Deployment
 
-Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
+### Deploying with Helm
 
-```shell
-go mod download
-```
-
-optionally:
+Here are the instructions to install the latest release with Helm.
 
 ```shell
-go mod vendor
+oc new-project operator-utils
+helm repo add operator-utils https://redhat-cop.github.io/operator-utils
+helm repo update
+helm install operator-utils operator-utils/operator-utils
 ```
 
-Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), run the operator locally:
+This can later be updated with the following commands:
 
 ```shell
-oc apply -f deploy/crds
-OPERATOR_NAME='example-operator' operator-sdk --verbose run local --watch-namespace "" --operator-flags="--zap-level=debug"
+helm repo update
+helm upgrade operator-utils operator-utils/operator-utils
 ```
 
-## Testing
+## Development
 
-### EnforcingCRD controller testing
+## Running the operator locally
 
 ```shell
-oc new-project test-enforcingcrd
-oc apply -f test/enforcing_cr.yaml -n test-enforcingcrd
-oc apply -f test/failing-enforcing_cr.yaml -n test-enforcingcrd
+make install
+oc new-project operator-utils-local
+oc apply -f config/rbac/role.yaml -n operator-utils-local
+oc apply -f config/rbac/role_binding.yaml -n operator-utils-local
+export token=$(oc serviceaccounts get-token 'default' -n operator-utils-local)
+oc login --token ${token}
+make run ENABLE_WEBHOOKS=false
 ```
 
-### TemplatedEnforcingCRD controller testing
+## Building/Pushing the operator image
 
 ```shell
-oc new-project test-templatedenforcingcrd
-oc apply -f test/templatedenforcing_cr.yaml -n test-templatedenforcingcrd
+export repo=raffaelespazzoli #replace with yours
+make docker-build IMG=quay.io/$repo/operator-utils:latest
+make docker-push IMG=quay.io/$repo/operator-utils:latest
 ```
 
-### Enforcing-patch test
+## Deploy to OLM via bundle
 
 ```shell
-oc new-project test-enforcing-patch
-oc create sa test -n test-enforcing-patch
-oc apply -f test/enforcing-patch.yaml -n test-enforcing-patch
+make manifests
+make bundle IMG=quay.io/$repo/operator-utils:latest
+operator-sdk bundle validate ./bundle --select-optional name=operatorhub
+make bundle-build BUNDLE_IMG=quay.io/$repo/operator-utils-bundle:latest
+podman push quay.io/$repo/operator-utils-bundle:latest
+operator-sdk bundle validate quay.io/$repo/operator-utils-bundle:latest --select-optional name=operatorhub
+oc new-project operator-utils
+operator-sdk cleanup operator-utils -n operator-utils
+operator-sdk run bundle --install-mode AllNamespaces -n operator-utils quay.io/$repo/operator-utils-bundle:latest
 ```
 
-## License
-
-This project is licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).
-
-## Release Process
-
-To release execute the following:
+## Releasing
 
 ```shell
-git tag -a "<version>" -m "release <version>"
-git push upstream <version>
+git tag -a "<tagname>" -m "<commit message>"
+git push upstream <tagname>
 ```
 
-use this version format: vM.m.z
+If you need to remove a release:
+
+```shell
+git tag -d <tagname>
+git push upstream --delete <tagname>
+```
+
+If you need to "move" a release to the current main
+
+```shell
+git tag -f <tagname>
+git push upstream -f <tagname>
+```
+
+### Cleaning up
+
+```shell
+operator-sdk cleanup operator-utils -n operator-utils
+oc delete operatorgroup operator-sdk-og
+oc delete catalogsource operator-utils-catalog
+```

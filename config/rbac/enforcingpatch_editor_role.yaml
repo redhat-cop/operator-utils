@@ -1,0 +1,24 @@
+# permissions for end users to edit enforcingpatches.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: enforcingpatch-editor-role
+rules:
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingpatches
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingpatches/status
+  verbs:
+  - get

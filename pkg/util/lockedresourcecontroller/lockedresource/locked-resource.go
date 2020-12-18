@@ -9,6 +9,7 @@ import (
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
@@ -18,9 +19,9 @@ var log = logf.Log.WithName("lockedresource")
 // LockedResource represents a resource to be locked down by a LockedResourceReconciler within a LockedResourceManager
 type LockedResource struct {
 	// unstructured.Unstructured is the resource to be locked
-	unstructured.Unstructured
+	unstructured.Unstructured `json:"usntructured,omitempty"`
 	// ExcludedPaths are the jsonPaths to be excluded when consider whether the resource has changed
-	ExcludedPaths []string
+	ExcludedPaths []string `json:"excludedPaths,omitempty"`
 }
 
 // AsListOfUnstructured given a list of LockedResource, returns a list of unstructured.Unstructured
@@ -67,13 +68,13 @@ func GetLockedResources(resources []apis.LockedResource) ([]LockedResource, erro
 
 var templates = map[string]*template.Template{}
 
-// GetLockedResourcesFromTemplate Keep backwards compatability with existing consumers
+// GetLockedResourcesFromTemplates Keep backwards compatability with existing consumers
 func GetLockedResourcesFromTemplates(resources []apis.LockedResourceTemplate, params interface{}) ([]LockedResource, error) {
 
 	return GetLockedResourcesFromTemplatesWithRestConfig(resources, nil, params)
 }
 
-// GetLockedResourcesFromTemplateWithRestConfig turns an array of ResourceTemplates as read from an API into an array of LockedResources using a params to process the templates
+// GetLockedResourcesFromTemplatesWithRestConfig turns an array of ResourceTemplates as read from an API into an array of LockedResources using a params to process the templates
 func GetLockedResourcesFromTemplatesWithRestConfig(resources []apis.LockedResourceTemplate, config *rest.Config, params interface{}) ([]LockedResource, error) {
 	lockedResources := []LockedResource{}
 	for _, resource := range resources {
@@ -119,8 +120,8 @@ var DefaultExcludedPaths = []string{".metadata", ".status", ".spec.replicas"}
 var DefaultExcludedPathsSet = strset.New(DefaultExcludedPaths...)
 
 //GetResources returs an arrays of apis.Resources from an arya of LockedResources, useful for mass operations on the LockedResources
-func GetResources(lockedResources []LockedResource) []apis.Resource {
-	resources := []apis.Resource{}
+func GetResources(lockedResources []LockedResource) []client.Object {
+	resources := []client.Object{}
 	for _, lockedResource := range lockedResources {
 		resources = append(resources, &lockedResource.Unstructured)
 	}

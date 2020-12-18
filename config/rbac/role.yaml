@@ -1,0 +1,94 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingcrds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingcrds/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingpatches
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - enforcingpatches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - mycrds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - mycrds/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - templatedenforcingcrds
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator-utils.example.io
+  resources:
+  - templatedenforcingcrds/status
+  verbs:
+  - get
+  - patch
+  - update

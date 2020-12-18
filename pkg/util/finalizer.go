@@ -17,17 +17,17 @@ limitations under the License.
 package util
 
 import (
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // IsBeingDeleted returns whether this object has been requested to be deleted
-func IsBeingDeleted(obj apis.Resource) bool {
+func IsBeingDeleted(obj client.Object) bool {
 	return !obj.GetDeletionTimestamp().IsZero()
 }
 
 // HasFinalizer returns whether this object has the passed finalizer
-func HasFinalizer(obj apis.Resource, finalizer string) bool {
+func HasFinalizer(obj client.Object, finalizer string) bool {
 	for _, fin := range obj.GetFinalizers() {
 		if fin == finalizer {
 			return true
@@ -37,11 +37,11 @@ func HasFinalizer(obj apis.Resource, finalizer string) bool {
 }
 
 // AddFinalizer adds the passed finalizer this object
-func AddFinalizer(obj apis.Resource, finalizer string) {
+func AddFinalizer(obj client.Object, finalizer string) {
 	controllerutil.AddFinalizer(obj, finalizer)
 }
 
 // RemoveFinalizer removes the passed finalizer from object
-func RemoveFinalizer(obj apis.Resource, finalizer string) {
+func RemoveFinalizer(obj client.Object, finalizer string) {
 	controllerutil.RemoveFinalizer(obj, finalizer)
 }

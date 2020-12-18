@@ -14,12 +14,12 @@ import (
 
 //LockedPatch represents a patch that needs to be enforced.
 type LockedPatch struct {
-	ID               string
-	SourceObjectRefs []corev1.ObjectReference
-	TargetObjectRef  corev1.ObjectReference
-	PatchType        types.PatchType
-	PatchTemplate    string
-	Template         template.Template
+	ID               string                   `json:"id,omitempty"`
+	SourceObjectRefs []corev1.ObjectReference `json:"sourceObjectRefs,omitempty"`
+	TargetObjectRef  corev1.ObjectReference   `json:"targetObjectRef,omitempty"`
+	PatchType        types.PatchType          `json:"patchType,omitempty"`
+	PatchTemplate    string                   `json:"patchTemplate,omitempty"`
+	Template         template.Template        `json:"-"`
 }
 
 //GetKey returns a not so unique key for a patch
