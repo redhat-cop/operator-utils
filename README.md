@@ -53,6 +53,19 @@ in main.go change like this
   }
 ```
 
+Also make sure to create the manager with `configmap` as the lease option for leader election:
+
+```go
+  mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+    Scheme:                     scheme,
+    MetricsBindAddress:         metricsAddr,
+    Port:                       9443,
+    LeaderElection:             enableLeaderElection,
+    LeaderElectionID:           "dcb036b8.redhat.io",
+    LeaderElectionResourceLock: "configmaps",
+  })
+```  
+
 If you want status management, add this to your CRD:
 
 ```go
