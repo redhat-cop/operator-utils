@@ -1,0 +1,21 @@
+apiVersion: v1
+entries:
+  operator-utils:
+  - apiVersion: v1
+    appVersion: v1.0.0
+    created: "2020-12-20T12:31:14.790445902Z"
+    description: Helm chart that deploys operator-utils
+    digest: 93e83071f50e852d2286b857f1c10d1ca9bf0af12c1c215cef432d2b54618f1d
+    keywords:
+    - volume
+    - storage
+    - csi
+    - expansion
+    - monitoring
+    name: operator-utils
+    sources:
+    - https://github.com/redhat-cop/operator-utils
+    urls:
+    - https://redhat-cop.github.io/operator-utils/operator-utils/operator-utils-v1.0.0.tgz
+    version: v1.0.0
+generated: "2020-12-20T12:31:14.789766386Z"
