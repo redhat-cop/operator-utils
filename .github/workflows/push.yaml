@@ -142,11 +142,11 @@ jobs:
 
       - name: Build helm chart repo
         shell: bash
-        run: make helmchart-repo VERSION=${VERSION} IMG=quay.io/${{ github.repository_owner }}/$(basename $GITHUB_REPOSITORY):${version} CHART_REPO_URL=https://${{ github.repository_owner }}.github.io/$(basename $GITHUB_REPOSITORY) HELM_REPO_DEST=./tmp/gh-pages
+        run: make helmchart-repo VERSION=${VERSION} IMG=quay.io/${{ github.repository_owner }}/$(basename $GITHUB_REPOSITORY):${version} CHART_REPO_URL=https://${{ github.repository_owner }}.github.io/$(basename $GITHUB_REPOSITORY) HELM_REPO_DEST=./tmp/gh-pages OPERATOR_NAME=$(basename $GITHUB_REPOSITORY)
       
       - name: push helm repo to gh-pages
         shell: bash
-        run: make helmchart-repo-push VERSION=${VERSION} IMG=quay.io/${{ github.repository_owner }}/$(basename $GITHUB_REPOSITORY):${version} CHART_REPO_URL=https://${{ github.repository_owner }}.github.io/$(basename $GITHUB_REPOSITORY) HELM_REPO_DEST=./tmp/gh-pages
+        run: make helmchart-repo-push VERSION=${VERSION} IMG=quay.io/${{ github.repository_owner }}/$(basename $GITHUB_REPOSITORY):${version} CHART_REPO_URL=https://${{ github.repository_owner }}.github.io/$(basename $GITHUB_REPOSITORY) HELM_REPO_DEST=./tmp/gh-pages OPERATOR_NAME=$(basename $GITHUB_REPOSITORY)
 
   release-github:
     name: GitHub Release
