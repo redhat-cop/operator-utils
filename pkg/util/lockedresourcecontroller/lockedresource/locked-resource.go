@@ -9,12 +9,12 @@ import (
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
 
-var log = logf.Log.WithName("lockedresource")
+var log = ctrl.Log.WithName("lockedresource")
 
 // LockedResource represents a resource to be locked down by a LockedResourceReconciler within a LockedResourceManager
 type LockedResource struct {

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 
+	"github.com/go-logr/logr"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/redhat-cop/operator-utils/pkg/util"
+	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource/lockedresourceset"
@@ -17,6 +19,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/util/openapi"
 	"k8s.io/kubectl/pkg/util/openapi/validation"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -38,6 +41,7 @@ type LockedResourceManager struct {
 	parent              client.Object
 	statusChange        chan<- event.GenericEvent
 	clusterWatchers     bool
+	log                 logr.Logger
 }
 
 // NewLockedResourceManager build a new LockedResourceManager
@@ -47,12 +51,12 @@ type LockedResourceManager struct {
 // statusChange: a channel through which send the notifications
 func NewLockedResourceManager(config *rest.Config, options manager.Options, parent client.Object, statusChange chan<- event.GenericEvent, clusterWatchers bool) (LockedResourceManager, error) {
 	lockedResourceManager := LockedResourceManager{
-		//stoppableManager: stoppableManager,
 		config:          config,
 		options:         options,
 		parent:          parent,
 		statusChange:    statusChange,
 		clusterWatchers: clusterWatchers,
+		log:             ctrl.Log.WithName("locker-resource-manager").WithName(apis.GetKeyShort(parent)),
 	}
 	return lockedResourceManager, nil
 }
@@ -74,7 +78,7 @@ func (lrm *LockedResourceManager) SetResources(resources []lockedresource.Locked
 	}
 	err := lrm.validateLockedResources(resources)
 	if err != nil {
-		log.Error(err, "unable to validate resources against running api server")
+		lrm.log.Error(err, "unable to validate resources against running api server")
 		return err
 	}
 	lrm.resources = resources
@@ -99,7 +103,7 @@ func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) 
 	}
 	err := lrm.validateLockedPatches(patches)
 	if err != nil {
-		log.Error(err, "unable to validate patches against running api server")
+		lrm.log.Error(err, "unable to validate patches against running api server")
 		return err
 	}
 	lrm.patches = patches
@@ -124,7 +128,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 
 	if !lrm.clusterWatchers {
 		namespaces := lrm.scanNamespaces()
-		log.V(1).Info("starting multicache with the following ", "namespaces", namespaces)
+		lrm.log.V(1).Info("starting multicache with the following ", "namespaces", namespaces)
 		options.NewCache = cache.MultiNamespacedCacheBuilder(namespaces)
 	}
 
@@ -132,7 +136,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 	lrm.stoppableManager = stoppableManager
 
 	if err != nil {
-		log.Error(err, "unable to create stoppable manager")
+		lrm.log.Error(err, "unable to create stoppable manager")
 		return err
 	}
 
@@ -140,7 +144,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 	for _, resource := range lrm.resources {
 		reconciler, err := NewLockedObjectReconciler(lrm.stoppableManager.Manager, resource.Unstructured, resource.ExcludedPaths, lrm.statusChange, lrm.parent)
 		if err != nil {
-			log.Error(err, "unable to create reconciler", "for locked resource", resource)
+			lrm.log.Error(err, "unable to create reconciler", "for locked resource", resource)
 			return err
 		}
 		resourceReconcilers = append(resourceReconcilers, reconciler)
@@ -151,7 +155,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 	for _, patch := range lrm.patches {
 		reconciler, err := NewLockedPatchReconciler(lrm.stoppableManager.Manager, patch, lrm.statusChange, lrm.parent)
 		if err != nil {
-			log.Error(err, "unable to create reconciler", "for locked patch", patch)
+			lrm.log.Error(err, "unable to create reconciler", "for locked patch", patch)
 			return err
 		}
 		patchReconcilers = append(patchReconcilers, reconciler)
@@ -170,7 +174,7 @@ func (lrm *LockedResourceManager) Stop(deleteResources bool) error {
 	if deleteResources {
 		err := lrm.deleteResources(context.TODO())
 		if err != nil {
-			log.Error(err, "unable to delete resources")
+			lrm.log.Error(err, "unable to delete resources")
 			return err
 		}
 	}
@@ -209,12 +213,12 @@ func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResou
 	}
 	err := lrm.SetResources(resources)
 	if err != nil {
-		log.Error(err, "unable to set", "resources", resources)
+		lrm.log.Error(err, "unable to set", "resources", resources)
 		return err
 	}
 	err = lrm.SetPatches(patches)
 	if err != nil {
-		log.Error(err, "unable to set", "patches", patches)
+		lrm.log.Error(err, "unable to set", "patches", patches)
 		return err
 	}
 	return lrm.Start(config)
@@ -253,12 +257,12 @@ func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatc
 	for _, patchID := range strset.Intersection(currentPatchSet, newPatchSet).List() {
 		currentPatch, err := json.Marshal(currentPatchMap[patchID])
 		if err != nil {
-			log.Error(err, "unable to Marshall", "currentPatch", currentPatchMap[patchID])
+			lrm.log.Error(err, "unable to Marshall", "currentPatch", currentPatchMap[patchID])
 			return false, leftDifference, intersection, rightDifference
 		}
 		newPatch, err := json.Marshal(newPatchMap[patchID])
 		if err != nil {
-			log.Error(err, "unable to Marshall", "newPatch", newPatchMap[patchID])
+			lrm.log.Error(err, "unable to Marshall", "newPatch", newPatchMap[patchID])
 			return false, leftDifference, intersection, rightDifference
 		}
 		if string(currentPatch) != string(newPatch) {
@@ -277,7 +281,7 @@ func (lrm *LockedResourceManager) deleteResources(context context.Context) error
 		lrm.stoppableManager.GetScheme().AddKnownTypes(groupVersion, &resource.Unstructured)
 		err := reconcilerBase.DeleteResourceIfExists(context, &resource.Unstructured)
 		if err != nil {
-			log.Error(err, "unable to delete", "resource", resource.Unstructured)
+			lrm.log.Error(err, "unable to delete", "resource", resource.Unstructured)
 			return err
 		}
 	}
@@ -295,28 +299,28 @@ func (lrm *LockedResourceManager) GetResourceReconcilers() []*LockedResourceReco
 func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lockedresource.LockedResource) error {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
 	if err != nil {
-		log.Error(err, "unable to create discovery client")
+		lrm.log.Error(err, "unable to create discovery client")
 		return err
 	}
 	//lockedResourceAPIResource.
 	// validate the unstructured object is conformant to the openapi
 	doc, err := discoveryClient.OpenAPISchema()
 	if err != nil {
-		log.Error(err, "unable to get openapi schema")
+		lrm.log.Error(err, "unable to get openapi schema")
 		return err
 	}
 	resources, err := openapi.NewOpenAPIData(doc)
 	if err != nil {
-		log.Error(err, "unable to get resouces from openapi doc")
+		lrm.log.Error(err, "unable to get resources from openapi doc")
 		return err
 	}
 	schemaValidation := validation.NewSchemaValidation(resources)
 	result := &multierror.Error{}
 	for _, lockedResource := range lockedResources {
-		log.V(1).Info("validating", "resource", lockedResource.Unstructured)
+		lrm.log.V(1).Info("validating", "resource", lockedResource.Unstructured)
 		resource, err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
 		if err != nil {
-			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
+			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			multierror.Append(result, err)
 			continue
 		}
@@ -326,19 +330,19 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 		}
 		err = util.ValidateUnstructured(&lockedResource.Unstructured, schemaValidation)
 		if err != nil {
-			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
+			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			multierror.Append(result, err)
 			continue
 		}
 		if resource.Namespaced && lockedResource.Unstructured.GetNamespace() == "" {
 			err := errors.New("namespaced resources must specify a namespace")
-			log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
+			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			multierror.Append(result, err)
 			continue
 		}
 	}
 	if result.ErrorOrNil() != nil {
-		log.Error(result, "encountered errors during resources validation")
+		lrm.log.Error(result, "encountered errors during resources validation")
 		return result
 	}
 	return nil
@@ -355,17 +359,17 @@ func (lrm *LockedResourceManager) GetPatchReconcilers() []*LockedPatchReconciler
 func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.LockedPatch) error {
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
 	if err != nil {
-		log.Error(err, "unable to create discovery client")
+		lrm.log.Error(err, "unable to create discovery client")
 		return err
 	}
 	result := &multierror.Error{}
 	for _, lockedPatch := range patches {
 		objrefs := append(lockedPatch.SourceObjectRefs, lockedPatch.TargetObjectRef)
 		for _, objref := range objrefs {
-			log.V(1).Info("validating", "objref", objref)
+			lrm.log.V(1).Info("validating", "objref", objref)
 			resource, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
 			if err != nil {
-				log.Error(err, "unable to validate", "objectref", objref)
+				lrm.log.Error(err, "unable to validate", "objectref", objref)
 				multierror.Append(result, err)
 				continue
 			}
@@ -375,14 +379,14 @@ func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.Lo
 			}
 			if resource.Namespaced && objref.Namespace == "" {
 				err := errors.New("namespace must be specified for namespaced resources")
-				log.Error(err, "unable to validate", "objectref", objref)
+				lrm.log.Error(err, "unable to validate", "objectref", objref)
 				multierror.Append(result, err)
 				continue
 			}
 		}
 	}
 	if result.ErrorOrNil() != nil {
-		log.Error(result, "encountered errors during patch validation")
+		lrm.log.Error(result, "encountered errors during patch validation")
 		return result
 	}
 	return nil

@@ -26,11 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/kubectl/pkg/util/openapi/validation"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/yaml"
 )
 
-var log = logf.Log.WithName("util")
+var log = ctrl.Log.WithName("util.api")
 
 // ProcessTemplate processes an initialized Go template with a set of data. It expects one API object to be defined in the template
 func ProcessTemplate(data interface{}, template *template.Template) (*unstructured.Unstructured, error) {
@@ -41,18 +41,18 @@ func ProcessTemplate(data interface{}, template *template.Template) (*unstructur
 		log.Error(err, "Error executing template", "template", template)
 		return &obj, err
 	}
+
 	bb, err := yaml.YAMLToJSON(b.Bytes())
 	if err != nil {
-		log.Error(err, "Error trasnfoming yaml to json", "manifest", string(b.Bytes()))
+		log.Error(err, "Error transforming yaml to json", "manifest", string(b.Bytes()))
 		return &obj, err
 	}
 
-	err = json.Unmarshal(bb, &obj)
+	err = obj.UnmarshalJSON(bb)
 	if err != nil {
 		log.Error(err, "Error unmarshalling json manifest", "manifest", string(bb))
 		return &obj, err
 	}
-
 	return &obj, err
 }
 
@@ -70,20 +70,38 @@ func ProcessTemplateArray(data interface{}, template *template.Template) ([]unst
 		log.Error(err, "Error trasnfoming yaml to json", "manifest", string(b.Bytes()))
 		return []unstructured.Unstructured{}, err
 	}
-
+	log.V(1).Info("debug", "json", string(bb))
 	if !IsJSONArray(bb) {
 		obj := unstructured.Unstructured{}
-		err = json.Unmarshal(bb, &obj)
+		err = obj.UnmarshalJSON(bb)
 		objs = append(objs, obj)
 	} else {
-		err = json.Unmarshal(bb, &objs)
+		intfs := &[]interface{}{}
+		err = json.Unmarshal(bb, &intfs)
+		if err != nil {
+			log.Error(err, "Error unmarshalling json manifest", "manifest", string(bb))
+			return []unstructured.Unstructured{}, err
+		}
+		for _, intf := range *intfs {
+			b, err := json.Marshal(intf)
+			if err != nil {
+				log.Error(err, "Error marshalling", "interface", intf)
+				return []unstructured.Unstructured{}, err
+			}
+			obj := unstructured.Unstructured{}
+			err = obj.UnmarshalJSON(b)
+			if err != nil {
+				log.Error(err, "Error unmarshalling", "json", string(b))
+				return []unstructured.Unstructured{}, err
+			}
+			objs = append(objs, obj)
+		}
 	}
 
 	if err != nil {
 		log.Error(err, "Error unmarshalling json manifest", "manifest", string(bb))
 		return []unstructured.Unstructured{}, err
 	}
-
 	return objs, err
 }
 
@@ -92,7 +110,7 @@ func ProcessTemplateArray(data interface{}, template *template.Template) ([]unst
 func ValidateUnstructured(obj *unstructured.Unstructured, validationSchema *validation.SchemaValidation) error {
 	bb, err := obj.MarshalJSON()
 	if err != nil {
-		log.Error(err, "unable to unmarshall", "unstrcutured", obj)
+		log.Error(err, "unable to unmarshall", "unstructured", obj)
 		return err
 	}
 	err = validationSchema.ValidateBytes(bb)

@@ -7,6 +7,8 @@ import (
 
 	"encoding/json"
 
+	"github.com/go-logr/logr"
+
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
@@ -17,18 +19,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-var logrc = logf.Log.WithName("lockedresourcecontroller")
 
 // LockedResourceReconciler is a reconciler that will lock down a resource based preventi changes from external events.
 // This reconciler cna be configured to ignore a set og json path. Changed occuring on the ignored path will be ignored, and therefore allowed by the reconciler
@@ -41,13 +41,17 @@ type LockedResourceReconciler struct {
 	statusLock     sync.Mutex
 	parentObject   client.Object
 	creationFailed chan event.GenericEvent
+	log            logr.Logger
 }
 
 // NewLockedObjectReconciler returns a new reconcile.Reconciler
 func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstructured, excludePaths []string, statusChange chan<- event.GenericEvent, parentObject client.Object) (*LockedResourceReconciler, error) {
 
+	controllername := "resource-reconciler"
+
 	reconciler := &LockedResourceReconciler{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("controller_locked_object_"+apis.GetKeyLong(&object))),
+		log:            ctrl.Log.WithName(controllername).WithName(apis.GetKeyShort(parentObject)).WithName(apis.GetKeyLong(&object)),
+		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllername+"_"+apis.GetKeyLong(&object))),
 		Resource:       object,
 		ExcludePaths:   excludePaths,
 		statusChange:   statusChange,
@@ -65,7 +69,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 
 	err := reconciler.CreateOrUpdateResource(context.TODO(), nil, "", object.DeepCopy())
 	if err != nil {
-		log.Error(err, "unable to create or update", "resource", object)
+		reconciler.log.Error(err, "unable to create or update", "resource", object)
 		reconciler.manageErrorNoInstance(err)
 		go func() {
 			reconciler.creationFailed <- event.GenericEvent{
@@ -76,7 +80,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 
 	controller, err := controller.New("controller_locked_object_"+apis.GetKeyLong(&object), mgr, controller.Options{Reconciler: reconciler})
 	if err != nil {
-		logrc.Error(err, "unable to create new controller", "with reconciler", reconciler)
+		reconciler.log.Error(err, "unable to create new controller", "with reconciler", reconciler)
 		return &LockedResourceReconciler{}, err
 	}
 
@@ -91,7 +95,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 		lrr:       reconciler,
 	})
 	if err != nil {
-		logrc.Error(err, "unable to create new watch", "with source", object)
+		reconciler.log.Error(err, "unable to create new watch", "with source", object)
 		return &LockedResourceReconciler{}, err
 	}
 
@@ -108,14 +112,14 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 
 // Reconcile contains the reconcile logic for LockedResourceReconciler
 func (lor *LockedResourceReconciler) Reconcile(context context.Context, request reconcile.Request) (reconcile.Result, error) {
-	logrc.Info("reconcile called for", "object", apis.GetKeyLong(&lor.Resource), "request", request)
+	lor.log.Info("reconcile called for", "object", apis.GetKeyLong(&lor.Resource), "request", request)
 	//err := lor.CreateOrUpdateResource(nil, "", &lor.Object)
 
 	// Fetch the  instance
 	//instance := &unstructured.Unstructured{}
 	client, err := lor.GetDynamicClientOnUnstructured(lor.Resource)
 	if err != nil {
-		logrc.Error(err, "unable to get dynamicClient", "on object", lor.Resource)
+		lor.log.Error(err, "unable to get dynamicClient", "on object", lor.Resource)
 		return lor.manageErrorNoInstance(err)
 	}
 	instance, err := client.Get(context, lor.Resource.GetName(), v1.GetOptions{})
@@ -124,48 +128,48 @@ func (lor *LockedResourceReconciler) Reconcile(context context.Context, request 
 			// if not found we have to recreate it.
 			err = lor.CreateOrUpdateResource(context, nil, "", lor.Resource.DeepCopy())
 			if err != nil {
-				logrc.Error(err, "unable to create or update", "object", lor.Resource)
+				lor.log.Error(err, "unable to create or update", "object", lor.Resource)
 				return lor.manageErrorNoInstance(err)
 			}
 			return lor.manageSuccessNoInstance()
 		}
 		// Error reading the object - requeue the request.
-		logrc.Error(err, "unable to lookup", "object", lor.Resource)
+		lor.log.Error(err, "unable to lookup", "object", lor.Resource)
 		return lor.manageError(instance, err)
 	}
-	logrc.V(1).Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
+	lor.log.V(1).Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
 	equal, err := lor.isEqual(instance)
 	if err != nil {
-		logrc.Error(err, "unable to determine if", "object", lor.Resource, "is equal to object", instance)
+		lor.log.Error(err, "unable to determine if", "object", lor.Resource, "is equal to object", instance)
 		return lor.manageError(instance, err)
 	}
 	if !equal {
-		logrc.V(1).Info("determined that resources are NOT equal")
+		lor.log.V(1).Info("determined that resources are NOT equal")
 		patch, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
 		if err != nil {
-			logrc.Error(err, "unable to filter out ", "excluded paths", lor.ExcludePaths, "from object", lor.Resource)
+			lor.log.Error(err, "unable to filter out ", "excluded paths", lor.ExcludePaths, "from object", lor.Resource)
 			return lor.manageError(instance, err)
 		}
 		patchBytes, err := json.Marshal(patch)
 		if err != nil {
-			logrc.Error(err, "unable to marshall ", "object", patch)
+			lor.log.Error(err, "unable to marshall ", "object", patch)
 			return lor.manageError(instance, err)
 		}
-		logrc.V(1).Info("executing", "patch", string(patchBytes), "on object", instance)
+		lor.log.V(1).Info("executing", "patch", string(patchBytes), "on object", instance)
 		_, err = client.Patch(context, instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
-			logrc.Error(err, "unable to patch ", "object", instance, "with patch", string(patchBytes))
+			lor.log.Error(err, "unable to patch ", "object", instance, "with patch", string(patchBytes))
 			return lor.manageError(instance, err)
 		}
 		return lor.manageSuccess(instance)
 	}
-	logrc.V(1).Info("determined that resources are equal")
+	lor.log.V(1).Info("determined that resources are equal")
 	return lor.manageSuccess(instance)
 }
 
 func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured) (bool, error) {
 	left, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
-	logrc.V(1).Info("resource", "desired", left)
+	lor.log.V(1).Info("resource", "desired", left)
 	if err != nil {
 		return false, err
 	}
@@ -173,13 +177,9 @@ func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured
 	if err != nil {
 		return false, err
 	}
-	logrc.V(1).Info("resource", "current", right)
+	lor.log.V(1).Info("resource", "current", right)
 	return reflect.DeepEqual(left, right), nil
 }
-
-// func getKeyFromObject(object *unstructured.Unstructured) string {
-// 	return object.GroupVersionKind().String() + "/" + object.GetNamespace() + "/" + object.GetName()
-// }
 
 type resourceModifiedPredicate struct {
 	name      string
@@ -210,7 +210,7 @@ func (p *resourceModifiedPredicate) Delete(e event.DeleteEvent) bool {
 			namespace := corev1.Namespace{}
 			err := p.lrr.GetClient().Get(context.TODO(), types.NamespacedName{Name: e.Object.GetNamespace()}, &namespace)
 			if err != nil {
-				logrc.Error(err, "unable to retrieve ", "namespace", "e.Meta.GetNamespace()")
+				p.lrr.log.Error(err, "unable to retrieve ", "namespace", "e.Meta.GetNamespace()")
 				return false
 			}
 			if util.IsBeingDeleted(&namespace) {
