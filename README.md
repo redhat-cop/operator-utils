@@ -1,7 +1,6 @@
 # Operator Utility Library
 
 ![build status](https://github.com/redhat-cop/operator-utils/workflows/push/badge.svg)
-[![Docker Repository on Quay](https://quay.io/repository/redhat-cop/operator-utils/status "Docker Repository on Quay")](https://quay.io/repository/redhat-cop/operator-utils)
 
 This library layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
 
