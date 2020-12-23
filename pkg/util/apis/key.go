@@ -5,10 +5,10 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var log = logf.Log.WithName("util.api")
+var log = ctrl.Log.WithName("util.api")
 
 // GetKeyLong return a unique key for a given object in the pattern of <kind>/<apiversion>/<namespace>/<name>
 // namespace can be null

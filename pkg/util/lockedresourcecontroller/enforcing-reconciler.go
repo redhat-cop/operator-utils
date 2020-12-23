@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -28,6 +30,7 @@ type EnforcingReconciler struct {
 	statusChange                chan event.GenericEvent
 	lockedResourceManagersMutex sync.Mutex
 	clusterWatchers             bool
+	log                         logr.Logger
 }
 
 //NewEnforcingReconciler creates a new EnforcingReconciler
@@ -41,6 +44,7 @@ func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restCo
 		statusChange:                make(chan event.GenericEvent),
 		lockedResourceManagersMutex: sync.Mutex{},
 		clusterWatchers:             clusterWatchers,
+		log:                         ctrl.Log.WithName("enforcing-reconciler"),
 	}
 }
 
@@ -62,7 +66,7 @@ func (er *EnforcingReconciler) getLockedResourceManager(instance client.Object) 
 	if !ok {
 		lockedResourceManager, err := NewLockedResourceManager(er.GetRestConfig(), manager.Options{}, instance, er.statusChange, er.clusterWatchers)
 		if err != nil {
-			log.Error(err, "unable to create LockedResourceManager")
+			er.log.Error(err, "unable to create LockedResourceManager")
 			return &LockedResourceManager{}, err
 		}
 		er.lockedResourceManagers[apis.GetKeyShort(instance)] = &lockedResourceManager
@@ -89,7 +93,7 @@ func (er *EnforcingReconciler) UpdateLockedResources(context context.Context, in
 func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(context context.Context, instance client.Object, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch, config *rest.Config) error {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Error(err, "unable to get LockedResourceManager")
+		er.log.Error(err, "unable to get LockedResourceManager")
 		return err
 	}
 	sameResources, leftDifference, _, _ := lockedResourceManager.IsSameResources(lockedResources)
@@ -99,12 +103,12 @@ func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(context conte
 	if !sameResources || !samePatches {
 		err = er.DeleteUnstructuredResources(context, lockedresource.AsListOfUnstructured(toBeDeleted))
 		if err != nil {
-			log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
+			er.log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
 			return err
 		}
 		err := lockedResourceManager.Restart(lockedResources, lockedPatches, false, config)
 		if err != nil {
-			log.Error(err, "unable to restart", "manager", lockedResourceManager)
+			er.log.Error(err, "unable to restart", "manager", lockedResourceManager)
 			return err
 		}
 	}
@@ -151,14 +155,14 @@ func (er *EnforcingReconciler) ManageError(context context.Context, instance cli
 		err := er.GetClient().Status().Update(context, instance)
 		if err != nil {
 			if errors.IsResourceExpired(err) {
-				log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
+				er.log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
 			} else {
-				log.Error(err, "unable to update status for", "object", instance)
+				er.log.Error(err, "unable to update status for", "object", instance)
 			}
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.V(1).Info("object is not RecocileStatusAware, not setting status")
+		er.log.V(1).Info("object is not RecocileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, issue
 }
@@ -179,18 +183,18 @@ func (er *EnforcingReconciler) ManageSuccess(context context.Context, instance c
 			LockedPatchStatuses:    er.GetLockedPatchStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
-		log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
+		er.log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 		err := er.GetClient().Status().Update(context, instance)
 		if err != nil {
 			if errors.IsResourceExpired(err) {
-				log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
+				er.log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
 			} else {
-				log.Error(err, "unable to update status for", "object", instance)
+				er.log.Error(err, "unable to update status for", "object", instance)
 			}
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.V(1).Info("object is not RecocileStatusAware, not setting status")
+		er.log.V(1).Info("object is not RecocileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, nil
 }
@@ -199,7 +203,7 @@ func (er *EnforcingReconciler) ManageSuccess(context context.Context, instance c
 func (er *EnforcingReconciler) GetLockedResourceStatuses(instance client.Object) map[string]apis.Conditions {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Error(err, "unable to get locked resource manager for", "parent", instance)
+		er.log.Error(err, "unable to get locked resource manager for", "parent", instance)
 		return map[string]apis.Conditions{}
 	}
 	lockedResourceReconcileStatuses := map[string]apis.Conditions{}
@@ -213,7 +217,7 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(instance client.Object)
 func (er *EnforcingReconciler) GetLockedPatchStatuses(instance client.Object) map[string]apis.Conditions {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.Error(err, "unable to get locked resource manager for", "parent", instance)
+		er.log.Error(err, "unable to get locked resource manager for", "parent", instance)
 		return map[string]apis.Conditions{}
 	}
 	lockedPatchReconcileStatuses := map[string]apis.Conditions{}
@@ -228,13 +232,13 @@ func (er *EnforcingReconciler) Terminate(instance client.Object, deleteResources
 	defer er.removeLockedResourceManager(instance)
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		log.V(1).Info("unable to get locked resource manager for", "parent", instance)
+		er.log.V(1).Info("unable to get locked resource manager for", "parent", instance)
 		return err
 	}
 	if lockedResourceManager.IsStarted() {
 		err = lockedResourceManager.Stop(deleteResources)
 		if err != nil {
-			log.V(1).Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
+			er.log.V(1).Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
 			return err
 		}
 	}

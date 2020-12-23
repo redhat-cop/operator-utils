@@ -3,14 +3,16 @@ package lockedpatch
 import (
 	"text/template"
 
-	"github.com/prometheus/common/log"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/scylladb/go-set/strset"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
+
+var log = ctrl.Log.WithName("lockedpatch")
 
 //LockedPatch represents a patch that needs to be enforced.
 type LockedPatch struct {

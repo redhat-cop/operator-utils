@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/go-logr/logr"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
@@ -22,20 +23,16 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/jsonpath"
 	"k8s.io/client-go/util/workqueue"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/yaml"
 )
-
-var controllername = "controller_patchlocker"
-
-var log = logf.Log.WithName(controllername)
 
 //LockedPatchReconciler is a reconciler that can enforce a LockedPatch
 type LockedPatchReconciler struct {
@@ -45,14 +42,17 @@ type LockedPatchReconciler struct {
 	statusChange chan<- event.GenericEvent
 	parentObject client.Object
 	statusLock   sync.Mutex
+	log          logr.Logger
 }
 
 //NewLockedPatchReconciler returns a new reconcile.Reconciler
 func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch, statusChange chan<- event.GenericEvent, parentObject client.Object) (*LockedPatchReconciler, error) {
 
 	// TODO create the object is it does not exists
+	controllername := "patch-reconciler"
 
 	reconciler := &LockedPatchReconciler{
+		log:            ctrl.Log.WithName(controllername).WithName(apis.GetKeyShort(parentObject)).WithName(patch.GetKey()),
 		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllername+"_"+patch.GetKey())),
 		patch:          patch,
 		statusChange:   statusChange,
@@ -115,10 +115,6 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 	return reconciler, nil
 }
 
-// func getKeyFromPatch(patch lockedpatch.LockedPatch) string {
-// 	return patch.TargetObjectRef.String()
-// }
-
 func getGVKfromReference(objref *corev1.ObjectReference) schema.GroupVersionKind {
 	return schema.FromAPIVersionAndKind(objref.APIVersion, objref.Kind)
 }
@@ -135,8 +131,6 @@ func objectRefToRuntimeType(objref *corev1.ObjectReference) client.Object {
 type enqueueRequestForPatch struct {
 	reconcile.Request
 }
-
-var enqueueLog = logf.Log.WithName("eventhandler").WithName("EnqueueRequestForObject")
 
 func (e *enqueueRequestForPatch) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	q.Add(e.Request)
@@ -161,8 +155,6 @@ type referenceModifiedPredicate struct {
 	corev1.ObjectReference
 	predicate.Funcs
 }
-
-var predicateLog = logf.Log.WithName("predicate").WithName("ReferenceModifiedPredicate")
 
 // Update implements default UpdateEvent filter for validating resource version change
 func (p *referenceModifiedPredicate) Update(e event.UpdateEvent) bool {
@@ -213,19 +205,19 @@ func (lpr *LockedPatchReconciler) Reconcile(context context.Context, request rec
 	//gather all needed the objects
 	targetObj, err := lpr.getReferecedObject(&lpr.patch.TargetObjectRef)
 	if err != nil {
-		log.Error(err, "unable to retrieve", "target", lpr.patch.TargetObjectRef)
+		lpr.log.Error(err, "unable to retrieve", "target", lpr.patch.TargetObjectRef)
 		return lpr.manageErrorNoTarget(err)
 	}
 	sourceMaps := []interface{}{}
 	for _, objref := range lpr.patch.SourceObjectRefs {
 		sourceObj, err := lpr.getReferecedObject(&objref)
 		if err != nil {
-			log.Error(err, "unable to retrieve", "source", sourceObj)
+			lpr.log.Error(err, "unable to retrieve", "source", sourceObj)
 			return lpr.manageError(targetObj, err)
 		}
-		sourceMap, err := getSubMapFromObject(sourceObj, objref.FieldPath)
+		sourceMap, err := lpr.getSubMapFromObject(sourceObj, objref.FieldPath)
 		if err != nil {
-			log.Error(err, "unable to retrieve", "field", objref.FieldPath, "from object", sourceObj)
+			lpr.log.Error(err, "unable to retrieve", "field", objref.FieldPath, "from object", sourceObj)
 			return lpr.manageError(targetObj, err)
 		}
 		sourceMaps = append(sourceMaps, sourceMap)
@@ -235,26 +227,23 @@ func (lpr *LockedPatchReconciler) Reconcile(context context.Context, request rec
 	var b bytes.Buffer
 	err = lpr.patch.Template.Execute(&b, sourceMaps)
 	if err != nil {
-		log.Error(err, "unable to process ", "template ", lpr.patch.Template, "parameters", sourceMaps)
+		lpr.log.Error(err, "unable to process ", "template ", lpr.patch.Template, "parameters", sourceMaps)
 		return lpr.manageError(targetObj, err)
 	}
-	//log.Info("processed", "template", b.String())
-	// convert the patch to from yaml to json
+
 	bb, err := yaml.YAMLToJSON(b.Bytes())
 
 	if err != nil {
-		log.Error(err, "unable to convert to json", "processed template", b.String())
+		lpr.log.Error(err, "unable to convert to json", "processed template", b.String())
 		return lpr.manageError(targetObj, err)
 	}
-	//log.Info("json", "patch", string(bb))
-	//apply the patch
 
 	patch := client.RawPatch(lpr.patch.PatchType, bb)
 
 	err = lpr.GetClient().Patch(context, targetObj, patch)
 
 	if err != nil {
-		log.Error(err, "unable to apply ", "patch", patch, "on target", targetObj)
+		lpr.log.Error(err, "unable to apply ", "patch", patch, "on target", targetObj)
 		return lpr.manageError(targetObj, err)
 	}
 
@@ -270,12 +259,12 @@ func (lpr *LockedPatchReconciler) getReferecedObject(objref *corev1.ObjectRefere
 	var ri dynamic.ResourceInterface
 	res, err := lpr.getAPIReourceForGVK(schema.FromAPIVersionAndKind(objref.APIVersion, objref.Kind))
 	if err != nil {
-		log.Error(err, "unable to get resourceAPI ", "objectref", objref)
+		lpr.log.Error(err, "unable to get resourceAPI ", "objectref", objref)
 		return &unstructured.Unstructured{}, err
 	}
 	nri, err := lpr.GetDynamicClientOnAPIResource(res)
 	if err != nil {
-		log.Error(err, "unable to get dynamicClient on ", "resourceAPI", res)
+		lpr.log.Error(err, "unable to get dynamicClient on ", "resourceAPI", res)
 		return &unstructured.Unstructured{}, err
 	}
 	if res.Namespaced {
@@ -285,13 +274,13 @@ func (lpr *LockedPatchReconciler) getReferecedObject(objref *corev1.ObjectRefere
 	}
 	obj, err := ri.Get(context.TODO(), objref.Name, metav1.GetOptions{})
 	if err != nil {
-		log.Error(err, "unable to get referenced ", "object", objref)
+		lpr.log.Error(err, "unable to get referenced ", "object", objref)
 		return &unstructured.Unstructured{}, err
 	}
 	return obj, nil
 }
 
-func getSubMapFromObject(obj *unstructured.Unstructured, fieldPath string) (interface{}, error) {
+func (lpr *LockedPatchReconciler) getSubMapFromObject(obj *unstructured.Unstructured, fieldPath string) (interface{}, error) {
 	if fieldPath == "" {
 		return obj.UnstructuredContent(), nil
 	}
@@ -299,13 +288,13 @@ func getSubMapFromObject(obj *unstructured.Unstructured, fieldPath string) (inte
 	jp := jsonpath.New("fieldPath:" + fieldPath)
 	err := jp.Parse("{" + fieldPath + "}")
 	if err != nil {
-		log.Error(err, "unable to parse ", "fieldPath", fieldPath)
+		lpr.log.Error(err, "unable to parse ", "fieldPath", fieldPath)
 		return nil, err
 	}
 
 	values, err := jp.FindResults(obj.UnstructuredContent())
 	if err != nil {
-		log.Error(err, "unable to apply ", "jsonpath", jp, " to obj ", obj.UnstructuredContent())
+		lpr.log.Error(err, "unable to apply ", "jsonpath", jp, " to obj ", obj.UnstructuredContent())
 		return nil, err
 	}
 
@@ -320,12 +309,12 @@ func (lpr *LockedPatchReconciler) getAPIReourceForGVK(gvk schema.GroupVersionKin
 	res := metav1.APIResource{}
 	discoveryClient, err := lpr.GetDiscoveryClient()
 	if err != nil {
-		log.Error(err, "unable to create discovery client")
+		lpr.log.Error(err, "unable to create discovery client")
 		return res, err
 	}
 	resList, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {
-		log.Error(err, "unable to retrieve resouce list for:", "groupversion", gvk.GroupVersion().String())
+		lpr.log.Error(err, "unable to retrieve resouce list for:", "groupversion", gvk.GroupVersion().String())
 		return res, err
 	}
 	for _, resource := range resList.APIResources {

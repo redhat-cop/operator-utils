@@ -8,6 +8,7 @@ require (
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/set v0.2.1
 	github.com/go-logr/logr v0.3.0
+	github.com/google/martian v2.1.0+incompatible
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
