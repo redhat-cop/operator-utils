@@ -105,7 +105,7 @@ To enable CR validation add this to your controller:
 
 ```go
 if ok, err := r.IsValid(instance); !ok {
- return r.ManageError(instance, err)
+ return r.ManageError(ctx, instance, err)
 }
 ```
 
@@ -127,7 +127,7 @@ if ok := r.IsInitialized(instance); !ok {
  err := r.GetClient().Update(context.TODO(), instance)
  if err != nil {
   log.Error(err, "unable to update instance", "instance", instance)
-  return r.ManageError(instance, err)
+  return r.ManageError(ctx, instance, err)
  }
  return reconcile.Result{}, nil
 }
@@ -146,13 +146,13 @@ func (r *ReconcileMyCRD) IsInitialized(obj metav1.Object) bool {
 To update the status with success and return from the reconciliation cycle, code the following:
 
 ```go
-return r.ManageSuccess(instance)
+return r.ManageSuccess(ctx, instance)
 ```
 
 To update the status with failure, record and event and return from the reconciliation cycle, code the following:
 
 ```go
-return r.ManageError(instance, err)
+return r.ManageError(ctx, instance, err)
 ```
 
 notice that this function will reschedule a reconciliation cycle with increasingly longer wait time up to six hours.
@@ -169,13 +169,13 @@ if util.IsBeingDeleted(instance) {
  err := r.manageCleanUpLogic(instance)
  if err != nil {
   log.Error(err, "unable to delete instance", "instance", instance)
-  return r.ManageError(instance, err)
+  return r.ManageError(ctx, instance, err)
  }
  util.RemoveFinalizer(instance, controllerName)
  err = r.GetClient().Update(context.TODO(), instance)
  if err != nil {
   log.Error(err, "unable to update instance", "instance", instance)
-  return r.ManageError(instance, err)
+  return r.ManageError(ctx, instance, err)
  }
  return reconcile.Result{}, nil
 }
@@ -220,10 +220,10 @@ Phase1 ... calculate a set of resources to be enforced -> LockedResources
   err = r.UpdateLockedResources(context,instance, lockedResources, ...)
   if err != nil {
     log.Error(err, "unable to update locked resources")
-    return r.ManageError(instance, err)
+    return r.ManageError(ctx, instance, err)
  }
 
-  return r.ManageSuccess(instance)
+  return r.ManageSuccess(ctx, instance)
 ```
 
 this is all you have to do for basic functionality. For more details see the [example](pkg/controller/apis/enforcingcrd/enforcingcrd_controller.go)
@@ -288,10 +288,10 @@ Phase1 ... calculate a set of patches to be enforced -> LockedPatches
   err = r.UpdateLockedResources(context, instance, ..., lockedPatches...)
   if err != nil {
     log.Error(err, "unable to update locked resources")
-    return r.ManageError(instance, err)
+    return r.ManageError(ctx, instance, err)
  }
 
-  return r.ManageSuccess(instance)
+  return r.ManageSuccess(ctx, instance)
 ```
 
 The `UpdateLockedResources` will validate the input as follows:
