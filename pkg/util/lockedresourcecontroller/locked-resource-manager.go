@@ -66,12 +66,12 @@ func (lrm *LockedResourceManager) GetResources() []lockedresource.LockedResource
 	return lrm.resources
 }
 
-//GetPatches retunrs the currently enforced patches
+//GetPatches returns the currently enforced patches
 func (lrm *LockedResourceManager) GetPatches() []lockedpatch.LockedPatch {
 	return lrm.patches
 }
 
-// SetResources set the resources to be enfroced. Can be called only when the LockedResourceManager is stopped.
+// SetResources set the resources to be enforced. Can be called only when the LockedResourceManager is stopped.
 func (lrm *LockedResourceManager) SetResources(resources []lockedresource.LockedResource) error {
 	if lrm.stoppableManager.IsStarted() {
 		return errors.New("cannot set resources while enforcing is on")
@@ -85,7 +85,7 @@ func (lrm *LockedResourceManager) SetResources(resources []lockedresource.Locked
 	return nil
 }
 
-// SetPatches set the patches to be enfroced. Can be called only when the LockedResourceManager is stopped.
+// SetPatches set the patches to be enforced. Can be called only when the LockedResourceManager is stopped.
 func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) error {
 	if lrm.stoppableManager.IsStarted() {
 		return errors.New("cannot set resources while enforcing is on")
@@ -168,7 +168,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 
 // Stop stops the LockedResourceManager.
 // deleteResource controls whether the managed resources should be deleted or left in place
-// notice that lrm will always succed at stoppping the manager, but it might fail at deleting resources
+// notice that lrm will always succeed at stopping the manager, but it might fail at deleting resources
 func (lrm *LockedResourceManager) Stop(deleteResources bool) error {
 	lrm.stoppableManager.Stop()
 	if deleteResources {
@@ -226,7 +226,7 @@ func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResou
 
 // IsSameResources checks whether the currently enforced resources are the same as the ones passed as parameters
 // same is true is current resources are the same as the resources passed as a parameter
-// leftDifference contains the resources that are in the current reosurces but not in passed in the parameter
+// leftDifference contains the resources that are in the current resources but not in passed in the parameter
 // intersection contains resources that are both in the current resources and the parameter
 // rightDifference contains the resources that are in the parameter but not in the current resources
 func (lrm *LockedResourceManager) IsSameResources(resources []lockedresource.LockedResource) (same bool, leftDifference []lockedresource.LockedResource, intersection []lockedresource.LockedResource, rightDifference []lockedresource.LockedResource) {

@@ -112,8 +112,8 @@ func (r *EnforcingCRDReconciler) manageCleanUpLogic(instance *v1alpha1.Enforcing
 	return nil
 }
 
-// IsInitialized can be used to check if isntance is correctlty initialuzed.
-// returns false it it's not.
+// IsInitialized can be used to check if instance is correctly initialized.
+// returns false it isn't.
 func (r *EnforcingCRDReconciler) IsInitialized(instance *v1alpha1.EnforcingCRD) bool {
 	needsUpdate := false
 	for i := range instance.Spec.Resources {

@@ -103,8 +103,8 @@ func (r *TemplatedEnforcingCRDReconciler) Reconcile(context context.Context, req
 	return r.ManageSuccess(context, instance)
 }
 
-// IsInitialized can be used to check if isntance is correctlty initialuzed.
-// returns false it it's not.
+// IsInitialized can be used to check if instance is correctly initialized.
+// returns false it isn't.
 func (r *TemplatedEnforcingCRDReconciler) IsInitialized(instance *v1alpha1.TemplatedEnforcingCRD) bool {
 	needsUpdate := true
 	for i := range instance.Spec.Templates {
