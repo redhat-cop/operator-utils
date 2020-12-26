@@ -8,12 +8,10 @@ require (
 	github.com/evanphx/json-patch v4.9.0+incompatible
 	github.com/fatih/set v0.2.1
 	github.com/go-logr/logr v0.3.0
-	github.com/google/martian v2.1.0+incompatible
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/common v0.10.0
 	github.com/scylladb/go-set v1.0.2
 	k8s.io/api v0.20.0
 	k8s.io/apimachinery v0.20.0
