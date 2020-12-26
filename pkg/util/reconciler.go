@@ -370,7 +370,7 @@ func (r *ReconcilerBase) ManageError(context context.Context, obj client.Object,
 			Reason:             apis.ReconcileErrorReason,
 			Status:             metav1.ConditionTrue,
 		}
-		apis.SetCondition(condition, conditionsAware)
+		apis.AddOrReplaceCondition(condition, conditionsAware.GetConditions())
 		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
@@ -392,7 +392,7 @@ func (r *ReconcilerBase) ManageSuccess(context context.Context, obj client.Objec
 			Reason:             apis.ReconcileSuccessReason,
 			Status:             metav1.ConditionTrue,
 		}
-		apis.SetCondition(condition, conditionsAware)
+		apis.AddOrReplaceCondition(condition, conditionsAware.GetConditions())
 		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
