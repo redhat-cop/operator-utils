@@ -48,7 +48,7 @@ func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restCo
 	}
 }
 
-//GetStatusChangeChannel returns the channel thoughr which status change events can be received
+//GetStatusChangeChannel returns the channel through which status change events can be received
 func (er *EnforcingReconciler) GetStatusChangeChannel() <-chan event.GenericEvent {
 	return er.statusChange
 }
