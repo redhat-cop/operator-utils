@@ -67,7 +67,7 @@ func ProcessTemplateArray(data interface{}, template *template.Template) ([]unst
 	}
 	bb, err := yaml.YAMLToJSON(b.Bytes())
 	if err != nil {
-		log.Error(err, "Error trasnfoming yaml to json", "manifest", string(b.Bytes()))
+		log.Error(err, "Error transforming yaml to json", "manifest", string(b.Bytes()))
 		return []unstructured.Unstructured{}, err
 	}
 	if !IsJSONArray(bb) {
