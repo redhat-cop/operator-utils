@@ -31,7 +31,7 @@ import (
 )
 
 // LockedResourceReconciler is a reconciler that will lock down a resource to prevent changes from external events.
-// This reconciler cna be configured to ignore a set og json path. Changed occurring on the ignored path will be ignored, and therefore allowed by the reconciler
+// This reconciler can be configured to ignore a set of json path. Changed occurring on the ignored path will be ignored, and therefore allowed by the reconciler
 type LockedResourceReconciler struct {
 	Resource     unstructured.Unstructured
 	ExcludePaths []string
