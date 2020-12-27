@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// ResourceGenerationOrFinalizerChangedPredicate this preducates will fire an update event when the spec of a resource is changed (controller by ResourceGeneration), or when the finalizers are changed
+// ResourceGenerationOrFinalizerChangedPredicate this predicate will fire an update event when the spec of a resource is changed (controller by ResourceGeneration), or when the finalizers are changed
 type ResourceGenerationOrFinalizerChangedPredicate struct {
 	predicate.Funcs
 }
