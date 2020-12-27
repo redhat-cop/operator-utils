@@ -370,14 +370,14 @@ func (r *ReconcilerBase) ManageError(context context.Context, obj client.Object,
 			Reason:             apis.ReconcileErrorReason,
 			Status:             metav1.ConditionTrue,
 		}
-		apis.AddOrReplaceCondition(condition, conditionsAware.GetConditions())
+		conditionsAware.SetConditions(apis.AddOrReplaceCondition(condition, conditionsAware.GetConditions()))
 		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.V(1).Info("object is not RecocileStatusAware, not setting status")
+		log.V(1).Info("object is not ConditionsAware, not setting status")
 	}
 	return reconcile.Result{}, issue
 }
@@ -392,14 +392,14 @@ func (r *ReconcilerBase) ManageSuccess(context context.Context, obj client.Objec
 			Reason:             apis.ReconcileSuccessReason,
 			Status:             metav1.ConditionTrue,
 		}
-		apis.AddOrReplaceCondition(condition, conditionsAware.GetConditions())
+		conditionsAware.SetConditions(apis.AddOrReplaceCondition(condition, conditionsAware.GetConditions()))
 		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
 			return reconcile.Result{}, err
 		}
 	} else {
-		log.V(1).Info("object is not RecocileStatusAware, not setting status")
+		log.V(1).Info("object is not ConditionsAware, not setting status")
 	}
 	return reconcile.Result{}, nil
 }
