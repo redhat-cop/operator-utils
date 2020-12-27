@@ -30,8 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// LockedResourceReconciler is a reconciler that will lock down a resource based preventi changes from external events.
-// This reconciler cna be configured to ignore a set og json path. Changed occuring on the ignored path will be ignored, and therefore allowed by the reconciler
+// LockedResourceReconciler is a reconciler that will lock down a resource to prevent changes from external events.
+// This reconciler can be configured to ignore a set of json path. Changed occurring on the ignored path will be ignored, and therefore allowed by the reconciler
 type LockedResourceReconciler struct {
 	Resource     unstructured.Unstructured
 	ExcludePaths []string

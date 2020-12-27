@@ -83,8 +83,8 @@ func (r *EnforcingPatchReconciler) Reconcile(context context.Context, req ctrl.R
 	return r.ManageSuccess(context, instance)
 }
 
-// IsInitialized can be used to check if isntance is correctlty initialuzed.
-// returns false it it's not.
+// IsInitialized can be used to check if instance is correctly initialized.
+// returns false it isn't.
 func (r *EnforcingPatchReconciler) IsInitialized(instance *v1alpha1.EnforcingPatch) bool {
 	needsUpdate := true
 	for i := range instance.Spec.Patches {

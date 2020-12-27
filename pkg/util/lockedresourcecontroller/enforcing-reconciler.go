@@ -23,7 +23,7 @@ import (
 )
 
 // EnforcingReconciler is a reconciler designed to as a base type to extend for those operators that compute a set of resources that then need to be kept in place (i.e. enforced)
-// the enforcing piece is taken care for, an implementor would just neeed to take care of the logic that computes the resorces to be enforced.
+// the enforcing piece is taken care for, an implementor would just need to take care of the logic that computes the resources to be enforced.
 type EnforcingReconciler struct {
 	util.ReconcilerBase
 	lockedResourceManagers      map[string]*LockedResourceManager
@@ -34,8 +34,8 @@ type EnforcingReconciler struct {
 }
 
 //NewEnforcingReconciler creates a new EnforcingReconciler
-// clusterWatcher detemines whether the created watchers should be at the cluster level or namespace level.
-// this affects the kind of permissions needed to run the controlelr
+// clusterWatcher determines whether the created watchers should be at the cluster level or namespace level.
+// this affects the kind of permissions needed to run the controller
 // also creating multiple namespace level permissions can create performance issue as one watch per object type per namespace is opened to the API server, if in doubt pass true here.
 func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, recorder record.EventRecorder, clusterWatchers bool) EnforcingReconciler {
 	return EnforcingReconciler{
@@ -77,7 +77,7 @@ func (er *EnforcingReconciler) getLockedResourceManager(instance client.Object) 
 
 // UpdateLockedResources will do the following:
 // 1. initialize or retrieve the LockedResourceManager related to the passed parent resource
-// 2. compare the currently enfrced resources with the one passed as parameters and then
+// 2. compare the currently enforced resources with the one passed as parameters and then
 //    a. return immediately if they are the same
 //    b. restart the LockedResourceManager if they don't match
 func (er *EnforcingReconciler) UpdateLockedResources(context context.Context, instance client.Object, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch) error {
@@ -86,10 +86,10 @@ func (er *EnforcingReconciler) UpdateLockedResources(context context.Context, in
 
 // UpdateLockedResourcesWithRestConfig will do the following:
 // 1. initialize or retrieve the LockedResourceManager related to the passed parent resource
-// 2. compare the currently enfrced resources with the one passed as parameters and then
+// 2. compare the currently enforced resources with the one passed as parameters and then
 //    a. return immediately if they are the same
 //    b. restart the LockedResourceManager if they don't match
-// this varian allow passing a rest config
+// this variant allows passing a rest config
 func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(context context.Context, instance client.Object, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch, config *rest.Config) error {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
@@ -227,7 +227,7 @@ func (er *EnforcingReconciler) GetLockedPatchStatuses(instance client.Object) ma
 	return lockedPatchReconcileStatuses
 }
 
-// Terminate will stop the execution for the current istance. It will also optionally delete the locked resources.
+// Terminate will stop the execution for the current instance. It will also optionally delete the locked resources.
 func (er *EnforcingReconciler) Terminate(instance client.Object, deleteResources bool) error {
 	defer er.removeLockedResourceManager(instance)
 	lockedResourceManager, err := er.getLockedResourceManager(instance)

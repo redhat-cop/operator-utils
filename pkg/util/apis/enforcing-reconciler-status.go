@@ -28,7 +28,7 @@ type EnforcingReconcileStatus struct {
 	LockedPatchStatuses map[string]Conditions `json:"lockedPatchStatuses,omitempty"`
 }
 
-// EnforcingReconcileStatusAware represnt a CRD type that has been enabled with ReconcileStatus, it can then benefit of a series of utility methods.
+// EnforcingReconcileStatusAware represent a CRD type that has been enabled with ReconcileStatus, it can then benefit of a series of utility methods.
 type EnforcingReconcileStatusAware interface {
 	GetEnforcingReconcileStatus() EnforcingReconcileStatus
 	SetEnforcingReconcileStatus(enforcingReconcileStatus EnforcingReconcileStatus)
