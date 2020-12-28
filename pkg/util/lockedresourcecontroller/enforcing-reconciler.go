@@ -48,7 +48,7 @@ func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restCo
 	}
 }
 
-//GetStatusChangeChannel returns the channel thoughr which status change events can be received
+//GetStatusChangeChannel returns the channel through which status change events can be received
 func (er *EnforcingReconciler) GetStatusChangeChannel() <-chan event.GenericEvent {
 	return er.statusChange
 }
@@ -162,7 +162,7 @@ func (er *EnforcingReconciler) ManageError(context context.Context, instance cli
 			return reconcile.Result{}, err
 		}
 	} else {
-		er.log.V(1).Info("object is not RecocileStatusAware, not setting status")
+		er.log.V(1).Info("object is not ReconcileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, issue
 }
@@ -194,7 +194,7 @@ func (er *EnforcingReconciler) ManageSuccess(context context.Context, instance c
 			return reconcile.Result{}, err
 		}
 	} else {
-		er.log.V(1).Info("object is not RecocileStatusAware, not setting status")
+		er.log.V(1).Info("object is not ReconcileStatusAware, not setting status")
 	}
 	return reconcile.Result{}, nil
 }

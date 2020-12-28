@@ -67,7 +67,7 @@ func ProcessTemplateArray(data interface{}, template *template.Template) ([]unst
 	}
 	bb, err := yaml.YAMLToJSON(b.Bytes())
 	if err != nil {
-		log.Error(err, "Error trasnfoming yaml to json", "manifest", string(b.Bytes()))
+		log.Error(err, "Error transforming yaml to json", "manifest", string(b.Bytes()))
 		return []unstructured.Unstructured{}, err
 	}
 	if !IsJSONArray(bb) {
@@ -104,8 +104,8 @@ func ProcessTemplateArray(data interface{}, template *template.Template) ([]unst
 	return objs, err
 }
 
-// ValidateUnstructured validates the content of an unstructred against an openapi schema.
-// the schema is intented to be retrieved from a running instance of kubernetes, but other usages are possible.
+// ValidateUnstructured validates the content of an unstructured against an openapi schema.
+// the schema is intended to be retrieved from a running instance of kubernetes, but other usages are possible.
 func ValidateUnstructured(obj *unstructured.Unstructured, validationSchema *validation.SchemaValidation) error {
 	bb, err := obj.MarshalJSON()
 	if err != nil {
@@ -126,7 +126,7 @@ func IsUnstructuredDefined(obj *unstructured.Unstructured, discoveryClient *disc
 	return IsGVKDefined(gvk, discoveryClient)
 }
 
-//IsGVKDefined verifuled if a resource is defined and returns it
+//IsGVKDefined verifies if a resource is defined and returns it
 func IsGVKDefined(gvk schema.GroupVersionKind, discoveryClient *discovery.DiscoveryClient) (*v1.APIResource, error) {
 	resources, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
 	if err != nil {

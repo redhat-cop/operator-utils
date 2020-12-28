@@ -126,7 +126,7 @@ func (r *MyCRDReconciler) IsValid(obj metav1.Object) (bool, error) {
 	if mycrd.Spec.Valid {
 		return true, nil
 	}
-	return false, errors.New("not valid becuase blah blah")
+	return false, errors.New("not valid because blah blah")
 }
 
 func (r *MyCRDReconciler) manageCleanUpLogic(mycrd *v1alpha1.MyCRD) error {
