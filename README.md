@@ -97,7 +97,7 @@ At this point your controller is able to reuse leverage the utility methods of t
    - same functions on an array of objects
    - go template processing of objects
 
-A full example is provided [here](./pkg/controller/mycrd/mycrd_controller.go)
+A full example is provided [here](./controllers/mycrd_controller.go)
 
 ### Managing CR validation
 
