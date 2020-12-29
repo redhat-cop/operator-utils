@@ -2,8 +2,25 @@ apiVersion: v1
 entries:
   operator-utils:
   - apiVersion: v1
+    appVersion: v1.1.1
+    created: "2020-12-29T22:39:02.933213365Z"
+    description: Helm chart that deploys operator-utils
+    digest: d1e6e079049606c62c1157d4ad97b5eaadebc95ee937633d978161afb2633156
+    keywords:
+    - volume
+    - storage
+    - csi
+    - expansion
+    - monitoring
+    name: operator-utils
+    sources:
+    - https://github.com/redhat-cop/operator-utils
+    urls:
+    - https://redhat-cop.github.io/operator-utils/operator-utils/operator-utils-v1.1.1.tgz
+    version: v1.1.1
+  - apiVersion: v1
     appVersion: v1.1.0
-    created: "2020-12-29T11:29:55.486155307Z"
+    created: "2020-12-29T22:39:02.932868964Z"
     description: Helm chart that deploys operator-utils
     digest: 96731d8cbc240a8bc0031b0f848bd70176cbf80984c269e6476d9d58ffaf0d3b
     keywords:
@@ -20,7 +37,7 @@ entries:
     version: v1.1.0
   - apiVersion: v1
     appVersion: v1.0.1
-    created: "2020-12-29T11:29:55.485819207Z"
+    created: "2020-12-29T22:39:02.932527362Z"
     description: Helm chart that deploys operator-utils
     digest: 091b59440211e5523b98cdaae2735752b6ce96506f24ff3491af6d32709b0afc
     keywords:
@@ -37,7 +54,7 @@ entries:
     version: v1.0.1
   - apiVersion: v1
     appVersion: v1.0.0
-    created: "2020-12-29T11:29:55.485475606Z"
+    created: "2020-12-29T22:39:02.932158261Z"
     description: Helm chart that deploys operator-utils
     digest: 93e83071f50e852d2286b857f1c10d1ca9bf0af12c1c215cef432d2b54618f1d
     keywords:
@@ -52,4 +69,4 @@ entries:
     urls:
     - https://redhat-cop.github.io/operator-utils/operator-utils/operator-utils-v1.0.0.tgz
     version: v1.0.0
-generated: "2020-12-29T11:29:55.484936006Z"
+generated: "2020-12-29T22:39:02.931589458Z"
