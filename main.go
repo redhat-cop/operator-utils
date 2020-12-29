@@ -71,28 +71,28 @@ func main() {
 	}
 
 	if err = (&controllers.MyCRDReconciler{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("MyCRD_controller")),
+		ReconcilerBase: util.NewReconcilerBase(mgr, mgr.GetEventRecorderFor("MyCRD_controller")),
 		Log:            ctrl.Log.WithName("controllers").WithName("MyCRD"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "MyCRD")
 		os.Exit(1)
 	}
 	if err = (&controllers.EnforcingCRDReconciler{
-		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("EnforcingCRD_controller"), true),
+		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr, mgr.GetEventRecorderFor("EnforcingCRD_controller"), true),
 		Log:                 ctrl.Log.WithName("controllers").WithName("EnforcingCRD"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EnforcingCRD")
 		os.Exit(1)
 	}
 	if err = (&controllers.EnforcingPatchReconciler{
-		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("EnforcingPatch_controller"), true),
+		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr, mgr.GetEventRecorderFor("EnforcingPatch_controller"), true),
 		Log:                 ctrl.Log.WithName("controllers").WithName("EnforcingPatch"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EnforcingPatch")
 		os.Exit(1)
 	}
 	if err = (&controllers.TemplatedEnforcingCRDReconciler{
-		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("TemplatedEnforcingCRD_controller"), true),
+		EnforcingReconciler: lockedresourcecontroller.NewEnforcingReconciler(mgr, mgr.GetEventRecorderFor("TemplatedEnforcingCRD_controller"), true),
 		Log:                 ctrl.Log.WithName("controllers").WithName("TemplatedEnforcingCRD"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TemplatedEnforcingCRD")
