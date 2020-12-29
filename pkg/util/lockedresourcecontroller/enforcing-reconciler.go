@@ -12,6 +12,7 @@ import (
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,15 +37,19 @@ type EnforcingReconciler struct {
 // clusterWatcher determines whether the created watchers should be at the cluster level or namespace level.
 // this affects the kind of permissions needed to run the controller
 // also creating multiple namespace level permissions can create performance issue as one watch per object type per namespace is opened to the API server, if in doubt pass true here.
-func NewEnforcingReconciler(mgr manager.Manager, recorder record.EventRecorder, clusterWatchers bool) EnforcingReconciler {
+func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, apireader client.Reader, recorder record.EventRecorder, clusterWatchers bool) EnforcingReconciler {
 	return EnforcingReconciler{
-		ReconcilerBase:              util.NewReconcilerBase(mgr, recorder),
+		ReconcilerBase:              util.NewReconcilerBase(client, scheme, restConfig, recorder, apireader),
 		lockedResourceManagers:      map[string]*LockedResourceManager{},
 		statusChange:                make(chan event.GenericEvent),
 		lockedResourceManagersMutex: sync.Mutex{},
 		clusterWatchers:             clusterWatchers,
 		log:                         ctrl.Log.WithName("enforcing-reconciler"),
 	}
+}
+
+func NewFromManager(mgr manager.Manager, recorder record.EventRecorder, clusterWatchers bool) EnforcingReconciler {
+	return NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetAPIReader(), recorder, clusterWatchers)
 }
 
 //GetStatusChangeChannel returns the channel through which status change events can be received

@@ -50,16 +50,26 @@ import (
 //   ... other optional fields ...
 // }
 type ReconcilerBase struct {
-	mgr      manager.Manager
-	recorder record.EventRecorder
+	apireader  client.Reader
+	client     client.Client
+	scheme     *runtime.Scheme
+	restConfig *rest.Config
+	recorder   record.EventRecorder
+}
+
+func NewReconcilerBase(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, recorder record.EventRecorder, apireader client.Reader) ReconcilerBase {
+	return ReconcilerBase{
+		apireader:  apireader,
+		client:     client,
+		scheme:     scheme,
+		restConfig: restConfig,
+		recorder:   recorder,
+	}
 }
 
 // NewReconcilerBase is a contruction function to create a new ReconcilerBase.
-func NewReconcilerBase(mgr manager.Manager, recorder record.EventRecorder) ReconcilerBase {
-	return ReconcilerBase{
-		mgr:      mgr,
-		recorder: recorder,
-	}
+func NewFromManager(mgr manager.Manager, recorder record.EventRecorder) ReconcilerBase {
+	return NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), recorder, mgr.GetAPIReader())
 }
 
 //IsValid determines if a CR instance is valid. this implementation returns always true, should be overridden
@@ -79,12 +89,12 @@ func (r *ReconcilerBase) Reconcile(request reconcile.Request) (reconcile.Result,
 
 // GetClient returns the underlying client
 func (r *ReconcilerBase) GetClient() client.Client {
-	return r.mgr.GetClient()
+	return r.client
 }
 
 //GetRestConfig returns the undelying rest config
 func (r *ReconcilerBase) GetRestConfig() *rest.Config {
-	return r.mgr.GetConfig()
+	return r.restConfig
 }
 
 // GetRecorder returns the underlying recorder
@@ -94,12 +104,12 @@ func (r *ReconcilerBase) GetRecorder() record.EventRecorder {
 
 // GetScheme returns the scheme
 func (r *ReconcilerBase) GetScheme() *runtime.Scheme {
-	return r.mgr.GetScheme()
+	return r.scheme
 }
 
 // GetDiscoveryClient returns a discovery client for the current reconciler
 func (r *ReconcilerBase) GetDiscoveryClient() (*discovery.DiscoveryClient, error) {
-	return discovery.NewDiscoveryClientForConfig(r.mgr.GetConfig())
+	return discovery.NewDiscoveryClientForConfig(r.GetRestConfig())
 }
 
 // GetDynamicClientOnAPIResource returns a dynamic client on an APIResource. This client can be further namespaced.
@@ -468,7 +478,7 @@ func (r *ReconcilerBase) GetDirectClientWithSchemeBuilders(addToSchemes ...func(
 
 // GetAPIReader returns a non cached reader
 func (r *ReconcilerBase) GetAPIReader() client.Reader {
-	return r.mgr.GetAPIReader()
+	return r.apireader
 }
 
 // GetOperatorNamespace tries to infer the operator namespace. I first looks for the /var/run/secrets/kubernetes.io/serviceaccount/namespace file.
