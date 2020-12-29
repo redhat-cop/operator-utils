@@ -53,7 +53,7 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 
 	reconciler := &LockedPatchReconciler{
 		log:            ctrl.Log.WithName(controllername).WithName(apis.GetKeyShort(parentObject)).WithName(patch.GetKey()),
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllername+"_"+patch.GetKey())),
+		ReconcilerBase: util.NewReconcilerBase(mgr, mgr.GetEventRecorderFor(controllername+"_"+patch.GetKey())),
 		patch:          patch,
 		statusChange:   statusChange,
 		parentObject:   parentObject,
