@@ -23,6 +23,7 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"time"
 
 	apis "github.com/redhat-cop/operator-utils/pkg/util/apis"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -348,11 +349,19 @@ func (r *ReconcilerBase) DeleteTemplatedResources(context context.Context, data 
 	return nil
 }
 
-//ManageError will take care of the following:
+// ManageOutcomeWithRequeue is a convenience function to call either ManageErrorWithRequeue if issue is non-nil, else ManageSuccessWithRequeue
+func (r *ReconcilerBase) ManageOutcomeWithRequeue(context context.Context, obj client.Object, issue error, requeueAfter time.Duration) (reconcile.Result, error) {
+	if issue != nil {
+		return r.ManageErrorWithRequeue(context, obj, issue, requeueAfter)
+	}
+	return r.ManageSuccessWithRequeue(context, obj, requeueAfter)
+}
+
+//ManageErrorWithRequeue will take care of the following:
 // 1. generate a warning event attached to the passed CR
 // 2. set the status of the passed CR to a error condition if the object implements the apis.ConditionsStatusAware interface
-// 3. return a reconcile status with the passed error
-func (r *ReconcilerBase) ManageError(context context.Context, obj client.Object, issue error) (reconcile.Result, error) {
+// 3. return a reconcile status with with the passed requeueAfter and error
+func (r *ReconcilerBase) ManageErrorWithRequeue(context context.Context, obj client.Object, issue error, requeueAfter time.Duration) (reconcile.Result, error) {
 	r.GetRecorder().Event(obj, "Warning", "ProcessingError", issue.Error())
 	if conditionsAware, updateStatus := (obj).(apis.ConditionsAware); updateStatus {
 		condition := metav1.Condition{
@@ -367,16 +376,24 @@ func (r *ReconcilerBase) ManageError(context context.Context, obj client.Object,
 		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
-			return reconcile.Result{}, err
+			return reconcile.Result{RequeueAfter: requeueAfter}, err
 		}
 	} else {
 		log.V(1).Info("object is not ConditionsAware, not setting status")
 	}
-	return reconcile.Result{}, issue
+	return reconcile.Result{RequeueAfter: requeueAfter}, issue
 }
 
-// ManageSuccess will update the status of the CR and return a successful reconcile result
-func (r *ReconcilerBase) ManageSuccess(context context.Context, obj client.Object) (reconcile.Result, error) {
+//ManageError will take care of the following:
+// 1. generate a warning event attached to the passed CR
+// 2. set the status of the passed CR to a error condition if the object implements the apis.ConditionsStatusAware interface
+// 3. return a reconcile status with the passed error
+func (r *ReconcilerBase) ManageError(context context.Context, obj client.Object, issue error) (reconcile.Result, error) {
+	return r.ManageErrorWithRequeue(context, obj, issue, 0)
+}
+
+// ManageSuccessWithRequeue will update the status of the CR and return a successful reconcile result with requeueAfter set
+func (r *ReconcilerBase) ManageSuccessWithRequeue(context context.Context, obj client.Object, requeueAfter time.Duration) (reconcile.Result, error) {
 	if conditionsAware, updateStatus := (obj).(apis.ConditionsAware); updateStatus {
 		condition := metav1.Condition{
 			Type:               apis.ReconcileSuccess,
@@ -389,12 +406,17 @@ func (r *ReconcilerBase) ManageSuccess(context context.Context, obj client.Objec
 		err := r.GetClient().Status().Update(context, obj)
 		if err != nil {
 			log.Error(err, "unable to update status")
-			return reconcile.Result{}, err
+			return reconcile.Result{RequeueAfter: requeueAfter}, err
 		}
 	} else {
 		log.V(1).Info("object is not ConditionsAware, not setting status")
 	}
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: requeueAfter}, nil
+}
+
+// ManageSuccess will update the status of the CR and return a successful reconcile result
+func (r *ReconcilerBase) ManageSuccess(context context.Context, obj client.Object) (reconcile.Result, error) {
+	return r.ManageSuccessWithRequeue(context, obj, 0)
 }
 
 //IsAPIResourceAvailable checks of a give GroupVersionKind is available in the running apiserver

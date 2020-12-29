@@ -157,6 +157,23 @@ return r.ManageError(ctx, instance, err)
 
 notice that this function will reschedule a reconciliation cycle with increasingly longer wait time up to six hours.
 
+There are also variants of these calls to allow for requeuing after a given delay.
+Requeuing is handy when reconciliation depends on a cluster-external state which is not observable from within the api-server.
+
+```go
+return r.ManageErrorWithRequeue(ctx, instance, err, 3*time.Second)
+```
+
+```go
+return r.ManageSuccessWithRequeue(ctx, instance, 3*time.Second)
+```
+
+or simply using the convenience function:
+```go
+return r.ManageOutcomeWithRequeue(ctx, instance, err, 3*time.Second)
+```
+which will delegate to the error or success variant depending on `err` being `nil` or not.
+
 ### Managing CR Finalization
 
 to enable CR finalization add this to your controller:
