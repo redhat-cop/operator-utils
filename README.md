@@ -1,6 +1,7 @@
 # Operator Utility Library
 
 ![build status](https://github.com/redhat-cop/operator-utils/workflows/push/badge.svg)
+[![GoDoc reference](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/redhat-cop/operator-utils)
 
 This library layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
 
