@@ -274,7 +274,7 @@ func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatc
 }
 
 func (lrm *LockedResourceManager) deleteResources(context context.Context) error {
-	reconcilerBase := util.NewReconcilerBase(lrm.stoppableManager.Manager, lrm.stoppableManager.GetEventRecorderFor("resource-deleter"))
+	reconcilerBase := util.NewFromManager(lrm.stoppableManager.Manager, lrm.stoppableManager.GetEventRecorderFor("resource-deleter"))
 	for _, resource := range lrm.GetResources() {
 		gvk := resource.Unstructured.GetObjectKind().GroupVersionKind()
 		groupVersion := schema.GroupVersion{Group: gvk.Group, Version: gvk.Version}

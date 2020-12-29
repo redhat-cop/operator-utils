@@ -51,7 +51,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 
 	reconciler := &LockedResourceReconciler{
 		log:            ctrl.Log.WithName(controllername).WithName(apis.GetKeyShort(parentObject)).WithName(apis.GetKeyLong(&object)),
-		ReconcilerBase: util.NewReconcilerBase(mgr, mgr.GetEventRecorderFor(controllername+"_"+apis.GetKeyLong(&object))),
+		ReconcilerBase: util.NewFromManager(mgr, mgr.GetEventRecorderFor(controllername+"_"+apis.GetKeyLong(&object))),
 		Resource:       object,
 		ExcludePaths:   excludePaths,
 		statusChange:   statusChange,
