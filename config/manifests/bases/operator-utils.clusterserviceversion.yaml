@@ -46,5 +46,4 @@ spec:
   maturity: alpha
   provider:
     name: Red Hat Community of Practice
-    url: https://github.com/redhat-cop/operator-utils
   version: 0.1.0
