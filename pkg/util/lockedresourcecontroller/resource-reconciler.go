@@ -137,7 +137,7 @@ func (lor *LockedResourceReconciler) Reconcile(context context.Context, request 
 		lor.log.Error(err, "unable to lookup", "object", lor.Resource)
 		return lor.manageError(instance, err)
 	}
-	lor.log.V(1).Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
+	//lor.log.V(1).Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
 	equal, err := lor.isEqual(instance)
 	if err != nil {
 		lor.log.Error(err, "unable to determine if", "object", lor.Resource, "is equal to object", instance)
@@ -155,7 +155,7 @@ func (lor *LockedResourceReconciler) Reconcile(context context.Context, request 
 			lor.log.Error(err, "unable to marshall ", "object", patch)
 			return lor.manageError(instance, err)
 		}
-		lor.log.V(1).Info("executing", "patch", string(patchBytes), "on object", instance)
+		//lor.log.V(1).Info("executing", "patch", string(patchBytes), "on object", instance)
 		_, err = client.Patch(context, instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			lor.log.Error(err, "unable to patch ", "object", instance, "with patch", string(patchBytes))
@@ -169,7 +169,7 @@ func (lor *LockedResourceReconciler) Reconcile(context context.Context, request 
 
 func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured) (bool, error) {
 	left, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
-	lor.log.V(1).Info("resource", "desired", left)
+	//lor.log.V(1).Info("resource", "desired", left)
 	if err != nil {
 		return false, err
 	}
@@ -177,7 +177,7 @@ func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured
 	if err != nil {
 		return false, err
 	}
-	lor.log.V(1).Info("resource", "current", right)
+	//lor.log.V(1).Info("resource", "current", right)
 	return reflect.DeepEqual(left, right), nil
 }
 

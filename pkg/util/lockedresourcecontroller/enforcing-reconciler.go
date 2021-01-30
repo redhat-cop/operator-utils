@@ -187,7 +187,7 @@ func (er *EnforcingReconciler) ManageSuccess(context context.Context, instance c
 			LockedPatchStatuses:    er.GetLockedPatchStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
-		er.log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
+		//er.log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 		err := er.GetClient().Status().Update(context, instance)
 		if err != nil {
 			if errors.IsResourceExpired(err) {

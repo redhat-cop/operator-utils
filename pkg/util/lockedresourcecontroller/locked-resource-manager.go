@@ -317,7 +317,7 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 	schemaValidation := validation.NewSchemaValidation(resources)
 	result := &multierror.Error{}
 	for _, lockedResource := range lockedResources {
-		lrm.log.V(1).Info("validating", "resource", lockedResource.Unstructured)
+		//lrm.log.V(1).Info("validating", "resource", lockedResource.Unstructured)
 		resource, err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
 		if err != nil {
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
@@ -366,7 +366,7 @@ func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.Lo
 	for _, lockedPatch := range patches {
 		objrefs := append(lockedPatch.SourceObjectRefs, lockedPatch.TargetObjectRef)
 		for _, objref := range objrefs {
-			lrm.log.V(1).Info("validating", "objref", objref)
+			//lrm.log.V(1).Info("validating", "objref", objref)
 			resource, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
 			if err != nil {
 				lrm.log.Error(err, "unable to validate", "objectref", objref)
