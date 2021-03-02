@@ -150,7 +150,12 @@ func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstruc
 	return dc, nil
 }
 
+// Deprecated - please use getAPIResourceForUnstructured instead.
 func (r *ReconcilerBase) getAPIReourceForUnstructured(obj unstructured.Unstructured) (metav1.APIResource, error) {
+  return r.getAPIResourceForUnstructured(obj)
+}
+
+func (r *ReconcilerBase) getAPIResourceForUnstructured(obj unstructured.Unstructured) (metav1.APIResource, error) {
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	res := metav1.APIResource{}
 	discoveryClient, err := r.GetDiscoveryClient()
