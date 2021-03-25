@@ -208,7 +208,8 @@ func (p *resourceModifiedPredicate) Delete(e event.DeleteEvent) bool {
 		// we return true only if the enclosing namespace is not also being deleted
 		if e.Object.GetNamespace() != "" {
 			namespace := corev1.Namespace{}
-			err := p.lrr.GetClient().Get(context.TODO(), types.NamespacedName{Name: e.Object.GetNamespace()}, &namespace)
+			// Use non-cached client since client's cache may be namespaced
+			err := p.lrr.GetAPIReader().Get(context.TODO(), types.NamespacedName{Name: e.Object.GetNamespace()}, &namespace)
 			if err != nil {
 				p.lrr.log.Error(err, "unable to retrieve ", "namespace", "e.Meta.GetNamespace()")
 				return false
