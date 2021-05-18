@@ -230,7 +230,13 @@ func (lor *LockedResourceReconciler) manageError(instance *unstructured.Unstruct
 		Message:            err.Error(),
 		Reason:             apis.ReconcileErrorReason,
 		Status:             metav1.ConditionTrue,
-		ObservedGeneration: instance.GetGeneration(),
+		ObservedGeneration: func() int64 {
+			if instance != nil {
+				return instance.GetGeneration()
+			} else {
+				return 0
+			}
+		}(),
 	}
 	lor.setStatus(apis.AddOrReplaceCondition(condition, lor.GetStatus()))
 	return reconcile.Result{}, err
