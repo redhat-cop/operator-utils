@@ -212,7 +212,10 @@ func (p *resourceModifiedPredicate) Delete(e event.DeleteEvent) bool {
 			err := p.lrr.GetAPIReader().Get(context.TODO(), types.NamespacedName{Name: e.Object.GetNamespace()}, &namespace)
 			if err != nil {
 				p.lrr.log.Error(err, "unable to retrieve ", "namespace", "e.Meta.GetNamespace()")
-				return false
+				// If the request failed return "true" as the k8s API will deny any create/update operation in a
+				// Namespace that's marked for termination. Returning false here causes resources not being reconciled
+				// in namespaced installations (Namespace requires a client with cluster scoped permissions)
+				return true
 			}
 			if util.IsBeingDeleted(&namespace) {
 				return false
