@@ -67,16 +67,11 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 		}}),
 	}
 
-	// err := reconciler.CreateOrUpdateResource(context.TODO(), nil, "", object.DeepCopy())
-	// if err != nil {
-	// 	reconciler.log.Error(err, "unable to create or update", "resource", object)
-	// 	reconciler.manageErrorNoInstance(err)
 	go func() {
 		reconciler.firstReconcile <- event.GenericEvent{
 			Object: &object,
 		}
 	}()
-	// }
 
 	controller, err := controller.New("controller_locked_object_"+apis.GetKeyLong(&object), mgr, controller.Options{Reconciler: reconciler})
 	if err != nil {
