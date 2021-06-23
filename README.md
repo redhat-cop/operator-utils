@@ -48,7 +48,7 @@ in main.go change like this
 
 ```go
   if err = (&controllers.MyReconciler{
-    ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("My_controller")),
+    ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("My_controller"), mgr.GetAPIReader()),
     Log:            ctrl.Log.WithName("controllers").WithName("My"),
   }).SetupWithManager(mgr); err != nil {
     setupLog.Error(err, "unable to create controller", "controller", "My")
