@@ -40,7 +40,7 @@ type LockedResourceReconciler struct {
 	statusChange   chan<- event.GenericEvent
 	statusLock     sync.Mutex
 	parentObject   client.Object
-	creationFailed chan event.GenericEvent
+	firstReconcile chan event.GenericEvent
 	log            logr.Logger
 }
 
@@ -57,7 +57,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 		statusChange:   statusChange,
 		parentObject:   parentObject,
 		statusLock:     sync.Mutex{},
-		creationFailed: make(chan event.GenericEvent),
+		firstReconcile: make(chan event.GenericEvent),
 		status: []metav1.Condition([]metav1.Condition{{
 			Type:               "Initializing",
 			LastTransitionTime: metav1.Now(),
@@ -67,16 +67,16 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 		}}),
 	}
 
-	err := reconciler.CreateOrUpdateResource(context.TODO(), nil, "", object.DeepCopy())
-	if err != nil {
-		reconciler.log.Error(err, "unable to create or update", "resource", object)
-		reconciler.manageErrorNoInstance(err)
-		go func() {
-			reconciler.creationFailed <- event.GenericEvent{
-				Object: &object,
-			}
-		}()
-	}
+	// err := reconciler.CreateOrUpdateResource(context.TODO(), nil, "", object.DeepCopy())
+	// if err != nil {
+	// 	reconciler.log.Error(err, "unable to create or update", "resource", object)
+	// 	reconciler.manageErrorNoInstance(err)
+	go func() {
+		reconciler.firstReconcile <- event.GenericEvent{
+			Object: &object,
+		}
+	}()
+	// }
 
 	controller, err := controller.New("controller_locked_object_"+apis.GetKeyLong(&object), mgr, controller.Options{Reconciler: reconciler})
 	if err != nil {
@@ -100,7 +100,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 	}
 
 	err = controller.Watch(
-		&source.Channel{Source: reconciler.creationFailed},
+		&source.Channel{Source: reconciler.firstReconcile},
 		&handler.EnqueueRequestForObject{},
 	)
 	if err != nil {
