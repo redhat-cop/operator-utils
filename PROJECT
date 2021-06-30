@@ -3,9 +3,26 @@ layout: go.kubebuilder.io/v2
 projectName: operator-utils
 repo: github.com/redhat-cop/operator-utils
 resources:
-- group: operator-utils
+- domain: example.io
+  group: operator-utils
   kind: MyCRD
+  path: github.com/redhat-cop/operator-utils/api/v1alpha1
   version: v1alpha1
-version: 3-alpha
+- domain: example.io
+  group: operator-utils
+  kind: EnforcingCRD
+  path: github.com/redhat-cop/operator-utils/api/v1alpha1
+  version: v1alpha1
+- domain: example.io
+  group: operator-utils
+  kind: EnforcingPatch
+  path: github.com/redhat-cop/operator-utils/api/v1alpha1
+  version: v1alpha1
+- domain: example.io
+  group: operator-utils
+  kind: EnforcingPatch
+  path: github.com/redhat-cop/operator-utils/api/v1alpha1
+  version: v1alpha1       
+version: "3"
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}
