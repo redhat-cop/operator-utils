@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    control-plane: controller-manager
+    operator: operator-utils-operator
   name: system
 ---
 apiVersion: apps/v1
@@ -11,17 +11,18 @@ metadata:
   name: controller-manager
   namespace: system
   labels:
-    control-plane: controller-manager
+    operator: operator-utils-operator
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      operator: operator-utils-operator
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        operator: operator-utils-operator
     spec:
+      serviceAccountName: controller-manager
       containers:
       - command:
         - /manager
