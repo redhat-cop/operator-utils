@@ -4,6 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
+    operatorframework.io/suggested-namespace: operator-utils-operator
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
   name: operator-utils.v0.0.0
@@ -12,6 +13,16 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: EnforcingCRD is the Schema for the enforcingcrds API
+      displayName: Enforcing CRD
+      kind: EnforcingCRD
+      name: enforcingcrds.operator-utils.example.io
+      version: v1alpha1
+    - description: EnforcingPatch is the Schema for the enforcingpatches API
+      displayName: Enforcing Patch
+      kind: EnforcingPatch
+      name: enforcingpatches.operator-utils.example.io
+      version: v1alpha1
     - description: MyCRD is the Schema for the mycrds API
       displayName: My CRD
       kind: MyCRD

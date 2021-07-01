@@ -404,10 +404,9 @@ helm upgrade operator-utils operator-utils/operator-utils
 
 ```shell
 make install
-oc new-project operator-utils-local
-oc apply -f config/rbac/role.yaml -n operator-utils-local
-oc apply -f config/rbac/role_binding.yaml -n operator-utils-local
-export token=$(oc serviceaccounts get-token 'default' -n operator-utils-local)
+oc new-project operator-utils-operator-local
+kustomize build ./config/local-development | oc apply -f - -n operator-utils-operator-local
+export token=$(oc serviceaccounts get-token 'operator-utils-operator-controller-manager' -n operator-utils-operator-local)
 oc login --token ${token}
 make run ENABLE_WEBHOOKS=false
 ```
@@ -416,6 +415,7 @@ make run ENABLE_WEBHOOKS=false
 
 ```shell
 export repo=raffaelespazzoli #replace with yours
+docker login quay.io/$repo
 make docker-build IMG=quay.io/$repo/operator-utils:latest
 make docker-push IMG=quay.io/$repo/operator-utils:latest
 ```
@@ -427,9 +427,10 @@ make manifests
 make bundle IMG=quay.io/$repo/operator-utils:latest
 operator-sdk bundle validate ./bundle --select-optional name=operatorhub
 make bundle-build BUNDLE_IMG=quay.io/$repo/operator-utils-bundle:latest
-podman push quay.io/$repo/operator-utils-bundle:latest
+docker push quay.io/$repo/operator-utils-bundle:latest
 operator-sdk bundle validate quay.io/$repo/operator-utils-bundle:latest --select-optional name=operatorhub
 oc new-project operator-utils
+oc label namespace operator-utils openshift.io/cluster-monitoring="true"
 operator-sdk cleanup operator-utils -n operator-utils
 operator-sdk run bundle --install-mode AllNamespaces -n operator-utils quay.io/$repo/operator-utils-bundle:latest
 ```

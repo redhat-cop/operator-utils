@@ -4,6 +4,7 @@ metadata:
   name: {{ include "operator-utils.fullname" . }}
   labels:
     {{- include "operator-utils.labels" . | nindent 4 }}
+    operator: operator-utils-operator
 spec:
   selector:
     matchLabels:
@@ -22,8 +23,26 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "operator-utils.serviceAccountName" . }}    
+      serviceAccountName: operator-utils-controller-manager    
       containers:
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --tls-cert-file=/etc/certs/tls/tls.crt
+        - --tls-private-key-file=/etc/certs/tls/tls.key
+        - --v=10
+        image: "{{ .Values.kube_rbac_proxy.image.repository }}:{{ .Values.kube_rbac_proxy.image.tag }}"
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+        volumeMounts:
+        - mountPath: /etc/certs/tls
+          name: tls-cert
+        imagePullPolicy: {{ .Values.kube_rbac_proxy.image.pullPolicy }}
+        resources:
+          {{- toYaml .Values.kube_rbac_proxy.resources | nindent 10 }}      
       - command:
         - /manager
         args:
@@ -45,3 +64,8 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      volumes:
+      - name: tls-cert
+        secret:
+          defaultMode: 420
+          secretName: operator-utils-operator-certs 
