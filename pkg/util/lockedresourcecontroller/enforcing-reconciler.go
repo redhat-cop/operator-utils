@@ -31,13 +31,14 @@ type EnforcingReconciler struct {
 	lockedResourceManagersMutex sync.Mutex
 	clusterWatchers             bool
 	log                         logr.Logger
+	returnOnlyFailingStatuses   bool
 }
 
 //NewEnforcingReconciler creates a new EnforcingReconciler
 // clusterWatcher determines whether the created watchers should be at the cluster level or namespace level.
 // this affects the kind of permissions needed to run the controller
 // also creating multiple namespace level permissions can create performance issue as one watch per object type per namespace is opened to the API server, if in doubt pass true here.
-func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, apireader client.Reader, recorder record.EventRecorder, clusterWatchers bool) EnforcingReconciler {
+func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restConfig *rest.Config, apireader client.Reader, recorder record.EventRecorder, clusterWatchers bool, returnOnlyFailingStatuses bool) EnforcingReconciler {
 	return EnforcingReconciler{
 		ReconcilerBase:              util.NewReconcilerBase(client, scheme, restConfig, recorder, apireader),
 		lockedResourceManagers:      map[string]*LockedResourceManager{},
@@ -45,11 +46,12 @@ func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restCo
 		lockedResourceManagersMutex: sync.Mutex{},
 		clusterWatchers:             clusterWatchers,
 		log:                         ctrl.Log.WithName("enforcing-reconciler"),
+		returnOnlyFailingStatuses:   returnOnlyFailingStatuses,
 	}
 }
 
-func NewFromManager(mgr manager.Manager, recorder record.EventRecorder, clusterWatchers bool) EnforcingReconciler {
-	return NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetAPIReader(), recorder, clusterWatchers)
+func NewFromManager(mgr manager.Manager, recorder record.EventRecorder, clusterWatchers bool, returnOnlyFailingStatuses bool) EnforcingReconciler {
+	return NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetAPIReader(), recorder, clusterWatchers, returnOnlyFailingStatuses)
 }
 
 //GetStatusChangeChannel returns the channel through which status change events can be received
@@ -212,7 +214,14 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(instance client.Object)
 	}
 	lockedResourceReconcileStatuses := map[string]apis.Conditions{}
 	for _, lockedResourceReconciler := range lockedResourceManager.GetResourceReconcilers() {
-		lockedResourceReconcileStatuses[apis.GetKeyLong(&lockedResourceReconciler.Resource)] = lockedResourceReconciler.GetStatus()
+		status := lockedResourceReconciler.GetStatus()
+		if er.returnOnlyFailingStatuses {
+			if lastCondition, ok := apis.GetLastCondition(status); ok && apis.IsErrorCondition(lastCondition) {
+				lockedResourceReconcileStatuses[apis.GetKeyLong(&lockedResourceReconciler.Resource)] = status
+			}
+		} else {
+			lockedResourceReconcileStatuses[apis.GetKeyLong(&lockedResourceReconciler.Resource)] = status
+		}
 	}
 	return lockedResourceReconcileStatuses
 }
@@ -226,7 +235,14 @@ func (er *EnforcingReconciler) GetLockedPatchStatuses(instance client.Object) ma
 	}
 	lockedPatchReconcileStatuses := map[string]apis.Conditions{}
 	for _, lockedPatchReconciler := range lockedResourceManager.GetPatchReconcilers() {
-		lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()] = lockedPatchReconciler.GetStatus()
+		status := lockedPatchReconciler.GetStatus()
+		if er.returnOnlyFailingStatuses {
+			if lastCondition, ok := apis.GetLastCondition(status); ok && apis.IsErrorCondition(lastCondition) {
+				lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()] = status
+			}
+		} else {
+			lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()] = status
+		}
 	}
 	return lockedPatchReconcileStatuses
 }
