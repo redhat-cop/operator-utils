@@ -76,9 +76,7 @@ func createPatchesFromJSONPaths(jsonPaths []string) ([][]byte, error) {
 
 func getMergePathFromJSONPath(jsonPath string) string {
 	//remove "$" if present
-	if strings.HasPrefix(jsonPath, "$") {
-		jsonPath = jsonPath[1:]
-	}
+	jsonPath = strings.TrimPrefix(jsonPath, "$")
 	// convert "[" and "]" to "."
 	if strings.HasSuffix(jsonPath, "]") {
 		jsonPath = jsonPath[:len(jsonPath)-2]

@@ -31,7 +31,7 @@ import (
 // LockedResourceManager is designed to be sued within an operator to enforce a set of resources.
 // It has methods to start and stop the enforcing and to detect whether a set of resources is equal to the currently enforce set.
 type LockedResourceManager struct {
-	stoppableManager    stoppablemanager.StoppableManager
+	stoppableManager    *stoppablemanager.StoppableManager
 	resources           []lockedresource.LockedResource
 	resourceReconcilers []*LockedResourceReconciler
 	patches             []lockedpatch.LockedPatch
@@ -117,7 +117,7 @@ func (lrm *LockedResourceManager) IsStarted() bool {
 
 // Start starts the LockedResourceManager
 func (lrm *LockedResourceManager) Start(config *rest.Config) error {
-	if &lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted() {
+	if lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted() {
 		return nil
 	}
 
@@ -133,7 +133,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 	}
 
 	stoppableManager, err := stoppablemanager.NewStoppableManager(config, options)
-	lrm.stoppableManager = stoppableManager
+	lrm.stoppableManager = &stoppableManager
 
 	if err != nil {
 		lrm.log.Error(err, "unable to create stoppable manager")
@@ -209,7 +209,11 @@ func (lrm *LockedResourceManager) scanNamespaces() []string {
 // if deleteResources is set, resources that were enforced are deleted.
 func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResource, patches []lockedpatch.LockedPatch, deleteResources bool, config *rest.Config) error {
 	if lrm.IsStarted() {
-		lrm.Stop(deleteResources)
+		err := lrm.Stop(deleteResources)
+		if err != nil {
+			lrm.log.Error(err, "unable to stop", "deleteResources", deleteResources)
+			return err
+		}
 	}
 	err := lrm.SetResources(resources)
 	if err != nil {
@@ -321,23 +325,23 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 		resource, err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
 		if err != nil {
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
-			multierror.Append(result, err)
+			result = multierror.Append(result, err)
 			continue
 		}
 		if resource == nil {
-			multierror.Append(result, errors.New("resource type:"+lockedResource.Unstructured.GroupVersionKind().String()+"not defined"))
+			result = multierror.Append(result, errors.New("resource type:"+lockedResource.Unstructured.GroupVersionKind().String()+"not defined"))
 			continue
 		}
 		err = util.ValidateUnstructured(&lockedResource.Unstructured, schemaValidation)
 		if err != nil {
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
-			multierror.Append(result, err)
+			result = multierror.Append(result, err)
 			continue
 		}
 		if resource.Namespaced && lockedResource.Unstructured.GetNamespace() == "" {
 			err := errors.New("namespaced resources must specify a namespace")
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
-			multierror.Append(result, err)
+			result = multierror.Append(result, err)
 			continue
 		}
 	}
@@ -370,17 +374,17 @@ func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.Lo
 			resource, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
 			if err != nil {
 				lrm.log.Error(err, "unable to validate", "objectref", objref)
-				multierror.Append(result, err)
+				result = multierror.Append(result, err)
 				continue
 			}
 			if resource == nil {
-				multierror.Append(result, errors.New("resource type:"+objref.GroupVersionKind().String()+"not defined"))
+				result = multierror.Append(result, errors.New("resource type:"+objref.GroupVersionKind().String()+"not defined"))
 				continue
 			}
 			if resource.Namespaced && objref.Namespace == "" {
 				err := errors.New("namespace must be specified for namespaced resources")
 				lrm.log.Error(err, "unable to validate", "objectref", objref)
-				multierror.Append(result, err)
+				result = multierror.Append(result, err)
 				continue
 			}
 		}
