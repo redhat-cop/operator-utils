@@ -47,7 +47,8 @@ func GetLastCondition(conditions []metav1.Condition) (metav1.Condition, bool) {
 	//we need to make a copy of the slice
 	copiedConditions := []metav1.Condition{}
 	for _, condition := range conditions {
-		copiedConditions = append(copiedConditions, condition)
+		ccondition := condition.DeepCopy()
+		copiedConditions = append(copiedConditions, *ccondition)
 	}
 	sort.Slice(copiedConditions, func(i, j int) bool {
 		return copiedConditions[i].LastTransitionTime.Before(&copiedConditions[j].LastTransitionTime)

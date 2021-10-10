@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 
@@ -159,10 +157,7 @@ type referenceModifiedPredicate struct {
 // Update implements default UpdateEvent filter for validating resource version change
 func (p *referenceModifiedPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectNew.GetName() == p.ObjectReference.Name && e.ObjectNew.GetNamespace() == p.ObjectReference.Namespace {
-		if compareObjectsWithoutIgnoredFields(e.ObjectNew, e.ObjectOld) {
-			return false
-		}
-		return true
+		return !compareObjectsWithoutIgnoredFields(e.ObjectNew, e.ObjectOld)
 	}
 	return false
 }
@@ -327,35 +322,6 @@ func (lpr *LockedPatchReconciler) getAPIReourceForGVK(gvk schema.GroupVersionKin
 		}
 	}
 	return res, nil
-}
-
-var jsonRegexp = regexp.MustCompile(`^\{\.?([^{}]+)\}$|^\.?([^{}]+)$`)
-
-// relaxedJSONPathExpression attempts to be flexible with JSONPath expressions, it accepts:
-//   * metadata.name (no leading '.' or curly braces '{...}'
-//   * {metadata.name} (no leading '.')
-//   * .metadata.name (no curly braces '{...}')
-//   * {.metadata.name} (complete expression)
-// And transforms them all into a valid jsonpath expression:
-//   {.metadata.name}
-func relaxedJSONPathExpression(pathExpression string) (string, error) {
-	if len(pathExpression) == 0 {
-		return pathExpression, nil
-	}
-	submatches := jsonRegexp.FindStringSubmatch(pathExpression)
-	if submatches == nil {
-		return "", fmt.Errorf("unexpected path string, expected a 'name1.name2' or '.name1.name2' or '{name1.name2}' or '{.name1.name2}'")
-	}
-	if len(submatches) != 3 {
-		return "", fmt.Errorf("unexpected submatch list: %v", submatches)
-	}
-	var fieldSpec string
-	if len(submatches[1]) != 0 {
-		fieldSpec = submatches[1]
-	} else {
-		fieldSpec = submatches[2]
-	}
-	return fmt.Sprintf("{.%s}", fieldSpec), nil
 }
 
 func (lpr *LockedPatchReconciler) manageError(target *unstructured.Unstructured, err error) (reconcile.Result, error) {

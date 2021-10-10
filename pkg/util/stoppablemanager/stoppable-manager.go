@@ -37,7 +37,12 @@ func (sm *StoppableManager) Start() {
 	}
 	ctx, cancel := context.WithCancel(context.TODO())
 	sm.cancelFunction = cancel
-	go sm.Manager.Start(ctx)
+	go func() {
+		err := sm.Manager.Start(ctx)
+		if err != nil {
+			log.Error(errors.New("unable to start manager"), "unable to start manager")
+		}
+	}()
 	sm.started = true
 }
 
