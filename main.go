@@ -78,21 +78,21 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.EnforcingCRDReconciler{
-		EnforcingReconciler: lockedresourcecontroller.NewFromManager(mgr, mgr.GetEventRecorderFor("EnforcingCRD_controller"), true),
+		EnforcingReconciler: lockedresourcecontroller.NewFromManager(mgr, mgr.GetEventRecorderFor("EnforcingCRD_controller"), true, false),
 		Log:                 ctrl.Log.WithName("controllers").WithName("EnforcingCRD"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EnforcingCRD")
 		os.Exit(1)
 	}
 	if err = (&controllers.EnforcingPatchReconciler{
-		EnforcingReconciler: lockedresourcecontroller.NewFromManager(mgr, mgr.GetEventRecorderFor("EnforcingPatch_controller"), true),
+		EnforcingReconciler: lockedresourcecontroller.NewFromManager(mgr, mgr.GetEventRecorderFor("EnforcingPatch_controller"), true, false),
 		Log:                 ctrl.Log.WithName("controllers").WithName("EnforcingPatch"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "EnforcingPatch")
 		os.Exit(1)
 	}
 	if err = (&controllers.TemplatedEnforcingCRDReconciler{
-		EnforcingReconciler: lockedresourcecontroller.NewFromManager(mgr, mgr.GetEventRecorderFor("TemplatedEnforcingCRD_controller"), true),
+		EnforcingReconciler: lockedresourcecontroller.NewFromManager(mgr, mgr.GetEventRecorderFor("TemplatedEnforcingCRD_controller"), true, false),
 		Log:                 ctrl.Log.WithName("controllers").WithName("TemplatedEnforcingCRD"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TemplatedEnforcingCRD")

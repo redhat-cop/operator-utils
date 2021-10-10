@@ -54,3 +54,7 @@ func GetLastCondition(conditions []metav1.Condition) (metav1.Condition, bool) {
 	})
 	return copiedConditions[len(copiedConditions)-1], true
 }
+
+func IsErrorCondition(condition metav1.Condition) bool {
+	return condition.Status != ReconcileSuccessReason
+}
