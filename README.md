@@ -13,7 +13,7 @@ This library layers on top of the Operator SDK and with the objective of helping
 
 This library covers three main areas:
 
-1. [Idempotent methods](#Idempotent-Methods-to-Manipulate-Resources) to manipulate resources and array of resources
+1. [Idempotent methods](#Idempotent-Methods-to-Manipulate-Resources) to manipulate resources and arrays of resources
 2. [Basic operator lifecycle](#Basic-Operator-Lifecycle-Management) needs (validation, initialization, status and error management, finalization)
 3. [Enforcing resources operator support](#Enforcing-Resource-Operator-Support). For those operators which calculate a set of resources that need to exist and then enforce them, generalized support for the enforcing phase is provided.
 
@@ -89,7 +89,7 @@ func (m *MyCRD) SetConditions(conditions []metav1.Condition) {
 
 ```
 
-At this point your controller is able to reuse leverage the utility methods of this library:
+At this point your controller is able to leverage the utility methods of this library:
 
 1. [managing CR validation](#managing-cr-validation)
 2. [managing CR initialization](#managing-cr-initialization)
@@ -152,7 +152,7 @@ To update the status with success and return from the reconciliation cycle, code
 return r.ManageSuccess(ctx, instance)
 ```
 
-To update the status with failure, record and event and return from the reconciliation cycle, code the following:
+To update the status with failure, record an event and return from the reconciliation cycle, code the following:
 
 ```go
 return r.ManageError(ctx, instance, err)
@@ -213,13 +213,13 @@ func (r *ReconcileMyCRD) manageCleanUpLogic(mycrd *examplev1alpha1.MyCRD) error 
 
 Many operators have the following logic:
 
-1. Phase 1: based on the CR and potentially additional status as set of resources that need to exist is calculated.
+1. Phase 1: based on the CR and potentially additional status, a set of resources that need to exist is calculated.
 2. Phase 2: These resources are then created or updated against the master API.
-3. Phase 3: A well written also ensures that these resources stay in place and are not accidentally or maliciously changed by third parties.
+3. Phase 3: A well written operator also ensures that these resources stay in place and are not accidentally or maliciously changed by third parties.
 
 These phases are of increasing difficulty to implement. It's also true that phase 2 and 3 can be generalized.
 
-Operator-utils offers some scaffolding to writing these kinds of operators.
+Operator-utils offers some scaffolding to assist in writing these kinds of operators.
 
 Similarly to the `BaseReconciler` class, we have a base type to extend called: `EnforcingReconciler`. This class extends from `BaseReconciler`, so you have all the same facilities as above.
 
@@ -249,7 +249,7 @@ Phase1 ... calculate a set of resources to be enforced -> LockedResources
 this is all you have to do for basic functionality. For more details see the [example](pkg/controller/apis/enforcingcrd/enforcingcrd_controller.go)
 the EnforcingReconciler will do the following:
 
-1. restore the resources to the desired stated if the are changed. Notice that you can exclude paths from being considered when deciding whether to restore a resource. As set oj JSON Path can be passed together with the LockedResource. It is recommended to set these paths:
+1. restore the resources to the desired stated if the are changed. Notice that you can exclude paths from being considered when deciding whether to restore a resource. As set of JSON Path can be passed together with the LockedResource. It is recommended to set these paths:
     1. `.metadata`
     2. `.status`
 
@@ -258,7 +258,7 @@ the EnforcingReconciler will do the following:
 The `UpdateLockedResources` will validate the input as follows:
 
 1. the passed resource must be defined in the current apiserver
-2. the passed resource must be syntactically complaint with the OpenAPI definition of the resource defined in the server.
+2. the passed resource must be syntactically compliant with the OpenAPI definition of the resource defined in the server.
 3. if the passed resource is namespaced, the namespace field must be initialized.
 
 The finalization method will look like this:
@@ -282,7 +282,7 @@ Convenience methods are also available for when resources are templated. See the
 For similar reasons stated in the previous paragraphs, operators might need to enforce patches.
 A patch modifies an object created by another entity. Because in this case the CR does not own the to-be-modified object a patch must be enforced against changes made on it.
 One must be careful not to create circular situations where an operator deletes the patch and this operator recreates the patch.
-In some situations, a patch must be parametric on some state of the cluster. For this reason, it's possible to monitor source objects that will be used as a parameters to calculate the patch.
+In some situations, a patch must be parametric on some state of the cluster. For this reason, it's possible to monitor source objects that will be used as parameters to calculate the patch.
 
 A patch is defined as follows:
 
@@ -352,7 +352,7 @@ objectTemplate: |
     name: {{ .Name }}
 ```
 
-This functionality can leverage advanced features of go templating, such as loops, to generate more than one object following a set pattern. The below example will create an array of namespace `LockedResources` using the title of any key where the associated value matches the text *devteam* in the key/value pair of the `Labels` property of the resource passed as in the parameter.
+This functionality can leverage advanced features of go templating, such as loops, to generate more than one object following a set pattern. The below example will create an array of namespace `LockedResources` using the title of any key where the associated value matches the text *devteam* in the key/value pair of the `Labels` property of the resource passed in the params parameter.
 
 ```golang
 objectTemplate: |
