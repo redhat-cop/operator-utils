@@ -112,7 +112,7 @@ func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) 
 
 // IsStarted returns whether the LockedResourceManager is started
 func (lrm *LockedResourceManager) IsStarted() bool {
-	return lrm.stoppableManager.IsStarted()
+	return lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted()
 }
 
 // Start starts the LockedResourceManager
