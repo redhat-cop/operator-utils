@@ -73,7 +73,7 @@ func (lrm *LockedResourceManager) GetPatches() []lockedpatch.LockedPatch {
 
 // SetResources set the resources to be enforced. Can be called only when the LockedResourceManager is stopped.
 func (lrm *LockedResourceManager) SetResources(resources []lockedresource.LockedResource) error {
-	if lrm.stoppableManager.IsStarted() {
+	if lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted() {
 		return errors.New("cannot set resources while enforcing is on")
 	}
 	err := lrm.validateLockedResources(resources)
@@ -87,7 +87,7 @@ func (lrm *LockedResourceManager) SetResources(resources []lockedresource.Locked
 
 // SetPatches set the patches to be enforced. Can be called only when the LockedResourceManager is stopped.
 func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) error {
-	if lrm.stoppableManager.IsStarted() {
+	if lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted() {
 		return errors.New("cannot set resources while enforcing is on")
 	}
 	// verifyPatchID Uniqueness
@@ -112,7 +112,7 @@ func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) 
 
 // IsStarted returns whether the LockedResourceManager is started
 func (lrm *LockedResourceManager) IsStarted() bool {
-	return lrm.stoppableManager.IsStarted()
+	return lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted()
 }
 
 // Start starts the LockedResourceManager
