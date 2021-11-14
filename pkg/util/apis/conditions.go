@@ -57,5 +57,5 @@ func GetLastCondition(conditions []metav1.Condition) (metav1.Condition, bool) {
 }
 
 func IsErrorCondition(condition metav1.Condition) bool {
-	return condition.Status != ReconcileSuccessReason
+	return !(condition.Type == ReconcileSuccess) || (condition.Type == "Initializing")
 }
