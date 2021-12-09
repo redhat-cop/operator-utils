@@ -8,6 +8,9 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // +listMapKey=type
 type Conditions []metav1.Condition
 
+// +mapType=granular
+type ConditionMap map[string]Conditions
+
 // EnforcingReconcileStatus represents the status of the last reconcile cycle. It's used to communicate success or failure and the error message
 type EnforcingReconcileStatus struct {
 
@@ -25,7 +28,7 @@ type EnforcingReconcileStatus struct {
 
 	//LockedResourceStatuses contains the reconcile status for each of the managed resources
 	// +kubebuilder:validation:Optional
-	LockedPatchStatuses map[string]map[string]Conditions `json:"lockedPatchStatuses,omitempty"`
+	LockedPatchStatuses map[string]ConditionMap `json:"lockedPatchStatuses,omitempty"`
 }
 
 // EnforcingReconcileStatusAware is an interfce that must be implemented by a CRD type that has been enabled with ReconcileStatus, it can then benefit of a series of utility methods.

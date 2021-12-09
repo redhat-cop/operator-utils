@@ -31,7 +31,6 @@ type EnforcingPatchSpec struct {
 
 	// Patches is a list of pacthes that should be encforced at runtime.
 	// +kubebuilder:validation:Optional
-	// +listType=atomic
 	Patches map[string]Patch `json:"patches,omitempty"`
 }
 

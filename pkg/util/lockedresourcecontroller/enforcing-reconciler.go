@@ -227,13 +227,13 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(instance client.Object)
 }
 
 // GetLockedPatchStatuses returns the status for all LockedPatches
-func (er *EnforcingReconciler) GetLockedPatchStatuses(instance client.Object) map[string]map[string]v1alpha1.Conditions {
+func (er *EnforcingReconciler) GetLockedPatchStatuses(instance client.Object) map[string]v1alpha1.ConditionMap {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
 		er.log.Error(err, "unable to get locked resource manager for", "parent", instance)
 		return nil
 	}
-	lockedPatchReconcileStatuses := map[string]map[string]v1alpha1.Conditions{}
+	lockedPatchReconcileStatuses := map[string]v1alpha1.ConditionMap{}
 	for _, lockedPatchReconciler := range lockedResourceManager.GetPatchReconcilers() {
 		status := lockedPatchReconciler.GetStatus()
 		for key, conditions := range status {
