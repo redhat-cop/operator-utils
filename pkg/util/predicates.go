@@ -31,11 +31,9 @@ type ResourceGenerationOrFinalizerChangedPredicate struct {
 // Update implements default UpdateEvent filter for validating resource version change
 func (ResourceGenerationOrFinalizerChangedPredicate) Update(e event.UpdateEvent) bool {
 	if e.ObjectOld == nil {
-		log.Error(nil, "GenericEvent has no old runtime object to update", "event", e)
 		return false
 	}
 	if e.ObjectNew == nil {
-		log.Error(nil, "GenericEvent has no new runtime object for update", "event", e)
 		return false
 	}
 	if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() && reflect.DeepEqual(e.ObjectNew.GetFinalizers(), e.ObjectOld.GetFinalizers()) {

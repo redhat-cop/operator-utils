@@ -11,19 +11,19 @@ import (
 func FilterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstructured.Unstructured, error) {
 	doc, err := obj.MarshalJSON()
 	if err != nil {
-		log.Error(err, "unable to marshall", "unstructured", obj)
+		innerlog.Error(err, "unable to marshall", "unstructured", obj)
 		return &unstructured.Unstructured{}, err
 	}
 
 	patches, err := createPatchesFromJSONPaths(jsonPaths)
 	if err != nil {
-		log.Error(err, "unable to create patches from", "jsonPaths", jsonPaths)
+		innerlog.Error(err, "unable to create patches from", "jsonPaths", jsonPaths)
 		return &unstructured.Unstructured{}, err
 	}
 	for _, patch := range patches {
 		decodedPatch, err := jsonpatch.DecodePatch(patch)
 		if err != nil {
-			log.Error(err, "unable to decode", "patch", string(patch))
+			innerlog.Error(err, "unable to decode", "patch", string(patch))
 			return &unstructured.Unstructured{}, err
 		}
 		doc1, err := decodedPatch.Apply(doc)
@@ -31,7 +31,7 @@ func FilterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstru
 			if strings.Contains(err.Error(), "Unable to remove nonexistent key") || strings.Contains(err.Error(), "remove operation does not apply: doc is missing path") {
 				continue
 			}
-			log.Error(err, "unable to apply", "patch", patch, "to json", string(doc))
+			innerlog.Error(err, "unable to apply", "patch", patch, "to json", string(doc))
 			return &unstructured.Unstructured{}, err
 		}
 		doc = doc1
@@ -42,7 +42,7 @@ func FilterOutPaths(obj *unstructured.Unstructured, jsonPaths []string) (*unstru
 	err = result.UnmarshalJSON(doc)
 
 	if err != nil {
-		log.Error(err, "unable to unMarshall", "json", doc)
+		innerlog.Error(err, "unable to unMarshall", "json", doc)
 		return &unstructured.Unstructured{}, err
 	}
 
@@ -66,7 +66,7 @@ func createPatchesFromJSONPaths(jsonPaths []string) ([][]byte, error) {
 		}
 		mpatch, err := json.Marshal(patch)
 		if err != nil {
-			log.Error(err, "unable to marshal", "patch", patch)
+			innerlog.Error(err, "unable to marshal", "patch", patch)
 			return [][]byte{}, err
 		}
 		result = append(result, mpatch)

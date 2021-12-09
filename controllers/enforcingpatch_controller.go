@@ -69,7 +69,7 @@ func (r *EnforcingPatchReconciler) Reconcile(context context.Context, req ctrl.R
 		return reconcile.Result{}, nil
 	}
 
-	lockedPatches, err := lockedpatch.GetLockedPatches(instance.Spec.Patches, r.GetRestConfig())
+	lockedPatches, err := lockedpatch.GetLockedPatches(instance.Spec.Patches, r.GetRestConfig(), log)
 	if err != nil {
 		log.Error(err, "unable to get locked patches")
 		return r.ManageError(context, instance, err)
@@ -87,10 +87,11 @@ func (r *EnforcingPatchReconciler) Reconcile(context context.Context, req ctrl.R
 // returns false it isn't.
 func (r *EnforcingPatchReconciler) IsInitialized(instance *v1alpha1.EnforcingPatch) bool {
 	needsUpdate := true
-	for i := range instance.Spec.Patches {
+	for i, patch := range instance.Spec.Patches {
 
-		if instance.Spec.Patches[i].PatchType == "" {
-			instance.Spec.Patches[i].PatchType = "application/strategic-merge-patch+json"
+		if patch.PatchType == "" {
+			patch.PatchType = "application/strategic-merge-patch+json"
+			instance.Spec.Patches[i] = patch
 			needsUpdate = false
 		}
 	}

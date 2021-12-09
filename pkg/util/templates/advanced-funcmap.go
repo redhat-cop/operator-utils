@@ -15,30 +15,32 @@ Concept pulled from Helm to match a known templating pattern
 https://github.com/helm/helm/blob/master/pkg/engine/funcs.go
 */
 
-package util
+package templates
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"text/template"
 
 	"github.com/BurntSushi/toml"
 	"github.com/Masterminds/sprig/v3"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+
+	"github.com/redhat-cop/operator-utils/pkg/util/dynamicclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
 
 // AdvancedTemplateFuncMap to add Sprig and additional templating functions
-func AdvancedTemplateFuncMap(config *rest.Config) template.FuncMap {
+func AdvancedTemplateFuncMap(config *rest.Config, logger logr.Logger) template.FuncMap {
 	f := sprig.HermeticTxtFuncMap()
 	// Removed these functions from the core Sprig package for security concerns
 	delete(f, "env")
@@ -64,7 +66,7 @@ func AdvancedTemplateFuncMap(config *rest.Config) template.FuncMap {
 	}
 
 	// Adding additional functionality found in Helm
-	f["lookup"] = NewLookupFunction(config)
+	f["lookup"] = NewLookupFunction(config, logger)
 
 	// Add the `required` function here so we can use lintMode
 	f["required"] = func(warn string, val interface{}) (interface{}, error) {
@@ -184,10 +186,13 @@ func fromJSONArray(str string) []interface{} {
 type lookupFunc = func(apiversion string, resource string, namespace string, name string) (map[string]interface{}, error)
 
 // NewLookupFunction get information at runtime from cluster
-func NewLookupFunction(config *rest.Config) lookupFunc {
+func NewLookupFunction(config *rest.Config, logger logr.Logger) lookupFunc {
 	return func(apiversion string, resource string, namespace string, name string) (map[string]interface{}, error) {
 		var client dynamic.ResourceInterface
-		c, namespaced, err := getDynamicClientOnKind(apiversion, resource, config)
+		ctx := context.TODO()
+		ctx = context.WithValue(ctx, "restConfig", config)
+		ctx = log.IntoContext(ctx, logger.WithName("lookup function"))
+		c, namespaced, err := dynamicclient.GetDynamicClientForGVK(ctx, schema.FromAPIVersionAndKind(apiversion, resource))
 		if err != nil {
 			return map[string]interface{}{}, err
 		}
@@ -198,7 +203,7 @@ func NewLookupFunction(config *rest.Config) lookupFunc {
 		}
 		if name != "" {
 			// this will return a single object
-			obj, err := client.Get(context.TODO(), name, metav1.GetOptions{})
+			obj, err := client.Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					// Just return an empty interface when the object was not found.
@@ -210,7 +215,7 @@ func NewLookupFunction(config *rest.Config) lookupFunc {
 			return obj.UnstructuredContent(), nil
 		}
 		//this will return a list
-		obj, err := client.List(context.TODO(), metav1.ListOptions{})
+		obj, err := client.List(ctx, metav1.ListOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				// Just return an empty interface when the object was not found.
@@ -221,50 +226,4 @@ func NewLookupFunction(config *rest.Config) lookupFunc {
 		}
 		return obj.UnstructuredContent(), nil
 	}
-}
-
-// getDynamicClientOnUnstructured returns a dynamic client on an Unstructured type. This client can be further namespaced.
-func getDynamicClientOnKind(apiversion string, kind string, config *rest.Config) (dynamic.NamespaceableResourceInterface, bool, error) {
-	gvk := schema.FromAPIVersionAndKind(apiversion, kind)
-	apiRes, err := getAPIReourceForGVK(gvk, config)
-	if err != nil {
-		log.Error(err, fmt.Sprintf("[ERROR] unable to get apiresource from unstructured: %s", gvk.String()))
-		return nil, false, errors.Wrapf(err, "unable to get apiresource from unstructured: %s", gvk.String())
-	}
-	gvr := schema.GroupVersionResource{
-		Group:    apiRes.Group,
-		Version:  apiRes.Version,
-		Resource: apiRes.Name,
-	}
-	intf, err := dynamic.NewForConfig(config)
-	if err != nil {
-		log.Error(err, "[ERROR] unable to get dynamic client")
-		return nil, false, err
-	}
-	res := intf.Resource(gvr)
-	return res, apiRes.Namespaced, nil
-}
-
-func getAPIReourceForGVK(gvk schema.GroupVersionKind, config *rest.Config) (metav1.APIResource, error) {
-	res := metav1.APIResource{}
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		log.Error(err, "[ERROR] unable to create discovery client %s")
-		return res, err
-	}
-	resList, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
-	if err != nil {
-		log.Error(err, fmt.Sprintf("[ERROR] unable to retrieve resource list for: %s", gvk.GroupVersion().String()))
-		return res, err
-	}
-	for _, resource := range resList.APIResources {
-		//if a resource contains a "/" it's referencing a subresource. we don't support suberesource for now.
-		if resource.Kind == gvk.Kind && !strings.Contains(resource.Name, "/") {
-			res = resource
-			res.Group = gvk.Group
-			res.Version = gvk.Version
-			break
-		}
-	}
-	return res, nil
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,7 +30,7 @@ type TemplatedEnforcingCRDSpec struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// +kubebuilder:validation:Optional
 	// +listType=atomic
-	Templates []apis.LockedResourceTemplate `json:"templates,omitempty"`
+	Templates []LockedResourceTemplate `json:"templates,omitempty"`
 }
 
 // TemplatedEnforcingCRDStatus defines the observed state of TemplatedEnforcingCRD
@@ -40,14 +39,14 @@ type TemplatedEnforcingCRDStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// +kubebuilder:validation:Optional
-	apis.EnforcingReconcileStatus `json:",inline,omitempty"`
+	EnforcingReconcileStatus `json:",inline,omitempty"`
 }
 
-func (m *TemplatedEnforcingCRD) GetEnforcingReconcileStatus() apis.EnforcingReconcileStatus {
+func (m *TemplatedEnforcingCRD) GetEnforcingReconcileStatus() EnforcingReconcileStatus {
 	return m.Status.EnforcingReconcileStatus
 }
 
-func (m *TemplatedEnforcingCRD) SetEnforcingReconcileStatus(reconcileStatus apis.EnforcingReconcileStatus) {
+func (m *TemplatedEnforcingCRD) SetEnforcingReconcileStatus(reconcileStatus EnforcingReconcileStatus) {
 	m.Status.EnforcingReconcileStatus = reconcileStatus
 }
 

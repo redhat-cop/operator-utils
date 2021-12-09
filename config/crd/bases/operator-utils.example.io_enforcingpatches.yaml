@@ -42,8 +42,9 @@ spec:
                 items:
                   description: Patch describes a patch to be enforced at runtime
                   properties:
-                    id:
-                      description: ID represents a unique Identifier for this patch
+                    name:
+                      description: Name represents a unique name for this patch, it
+                        has no particular effect, except for internal bookeeping
                       type: string
                     patchTemplate:
                       description: PatchTemplate is a go template that will be resolved
@@ -61,37 +62,23 @@ spec:
                       - application/apply-patch+yaml
                       type: string
                     sourceObjectRefs:
-                      description: SourceObject refs is an arrays of refereces to
+                      description: 'SourceObjectRefs is an arrays of refereces to
                         source objects that will be used as input for the template
-                        processing
+                        processing. These refernces must resolve to single instance.
+                        The resolution rule is as follows (+ present, - absent): the
+                        King and APIVersion field are mandatory -Namespace +Name:
+                        resolves to cluster-level object <Name>. If Kind is namespaced,
+                        this results in an error. -Namespace -Name: results in an
+                        error Name manespaces Namespace are evaluated as golang templates
+                        with the input of the template being the target object. When
+                        selecting multiple target, this allows for having specific
+                        source objects for each target. ResourceVersion and UID are
+                        always ignored If FieldPath is specified, the restuned object
+                        is calculated from the path, so for example if FieldPath=.spec,
+                        the only the spec portion of the object is returned. The target
+                        object is always added as element zero of the array of the
+                        SourceObjectRefs'
                       items:
-                        description: 'ObjectReference contains enough information
-                          to let you inspect or modify the referred object. --- New
-                          uses of this type are discouraged because of difficulty
-                          describing its usage when embedded in APIs.  1. Ignored
-                          fields.  It includes many fields which are not generally
-                          honored.  For instance, ResourceVersion and FieldPath are
-                          both very rarely valid in actual usage.  2. Invalid usage
-                          help.  It is impossible to add specific help for individual
-                          usage.  In most embedded usages, there are particular     restrictions
-                          like, "must refer only to types A and B" or "UID not honored"
-                          or "name must be restricted".     Those cannot be well described
-                          when embedded.  3. Inconsistent validation.  Because the
-                          usages are different, the validation rules are different
-                          by usage, which makes it hard for users to predict what
-                          will happen.  4. The fields are both imprecise and overly
-                          precise.  Kind is not a precise mapping to a URL. This can
-                          produce ambiguity     during interpretation and require
-                          a REST mapping.  In most cases, the dependency is on the
-                          group,resource tuple     and the version of the actual struct
-                          is irrelevant.  5. We cannot easily change it.  Because
-                          this type is embedded in many locations, updates to this
-                          type     will affect numerous schemas.  Don''t make new
-                          APIs embed an underspecified API type they do not control.
-                          Instead of using this type, create a locally provided and
-                          used type that is well-focused on your reference. For example,
-                          ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                          .'
                         properties:
                           apiVersion:
                             description: API version of the referent.
@@ -106,9 +93,7 @@ spec:
                               triggered the event) or if no container name is specified
                               "spec.containers[2]" (container with index 2 in this
                               pod). This syntax is chosen only to have some well-defined
-                              way of referencing a part of an object. TODO: this design
-                              is not final and this field is subject to change in
-                              the future.'
+                              way of referencing a part of an object.'
                             type: string
                           kind:
                             description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -119,58 +104,81 @@ spec:
                           namespace:
                             description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                             type: string
-                          resourceVersion:
-                            description: 'Specific resourceVersion to which this reference
-                              is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                            type: string
-                          uid:
-                            description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                            type: string
                         type: object
                       type: array
                       x-kubernetes-list-type: atomic
                     targetObjectRef:
-                      description: TargetObjectRef is a reference to the object to
-                        which the pacth should be applied.
+                      description: 'TargetObjectRef is a reference to the object to
+                        which the pacth should be applied. the King and APIVersion
+                        field are mandatory the Name and Namespace field have the
+                        following meaning (+ present, - absent) -Namespace +Name:
+                        apply the patch to the cluster-level object <Name>. If Kind
+                        is namespaced, this results in an error. -Namespace -Name:
+                        if the kind is namespaced apply the patch to all of the objects
+                        in all of the namespaces. If the kind is not namespaced, apply
+                        the patch to all of the cluster level objects. The lable selector
+                        can be used to further filter the selected objects.'
                       properties:
                         apiVersion:
                           description: API version of the referent.
                           type: string
-                        fieldPath:
-                          description: 'If referring to a piece of an object instead
-                            of an entire object, this string should contain a valid
-                            JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                            For example, if the object reference is to a container
-                            within a pod, this would take on a value like: "spec.containers{name}"
-                            (where "name" refers to the name of the container that
-                            triggered the event) or if no container name is specified
-                            "spec.containers[2]" (container with index 2 in this pod).
-                            This syntax is chosen only to have some well-defined way
-                            of referencing a part of an object. TODO: this design
-                            is not final and this field is subject to change in the
-                            future.'
-                          type: string
                         kind:
                           description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                           type: string
+                        labelSelector:
+                          description: LabelSelector selects objects by label.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: A label selector requirement is a selector
+                                  that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: operator represents a key's relationship
+                                      to a set of values. Valid operators are In,
+                                      NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: values is an array of string values.
+                                      If the operator is In or NotIn, the values array
+                                      must be non-empty. If the operator is Exists
+                                      or DoesNotExist, the values array must be empty.
+                                      This array is replaced during a strategic merge
+                                      patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: matchLabels is a map of {key,value} pairs.
+                                A single {key,value} in the matchLabels map is equivalent
+                                to an element of matchExpressions, whose key field
+                                is "key", the operator is "In", and the values array
+                                contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
                         name:
                           description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
                           type: string
                         namespace:
                           description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
                           type: string
-                        resourceVersion:
-                          description: 'Specific resourceVersion to which this reference
-                            is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                          type: string
-                        uid:
-                          description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                          type: string
                       type: object
                   required:
-                  - id
                   - patchTemplate
-                  - targetObjectRef
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic

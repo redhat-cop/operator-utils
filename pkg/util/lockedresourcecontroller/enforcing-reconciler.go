@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	"github.com/redhat-cop/operator-utils/api/v1alpha1"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
@@ -50,8 +51,8 @@ func NewEnforcingReconciler(client client.Client, scheme *runtime.Scheme, restCo
 	}
 }
 
-func NewFromManager(mgr manager.Manager, recorder record.EventRecorder, clusterWatchers bool, returnOnlyFailingStatuses bool) EnforcingReconciler {
-	return NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetAPIReader(), recorder, clusterWatchers, returnOnlyFailingStatuses)
+func NewFromManager(mgr manager.Manager, recorderName string, clusterWatchers bool, returnOnlyFailingStatuses bool) EnforcingReconciler {
+	return NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetAPIReader(), mgr.GetEventRecorderFor(recorderName), clusterWatchers, returnOnlyFailingStatuses)
 }
 
 //GetStatusChangeChannel returns the channel through which status change events can be received
@@ -143,7 +144,7 @@ func getToBeDeletdResources(neededResources []lockedresource.LockedResource, mod
 //ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
 func (er *EnforcingReconciler) ManageError(context context.Context, instance client.Object, issue error) (reconcile.Result, error) {
 	er.GetRecorder().Event(instance, "Warning", "ProcessingError", issue.Error())
-	if enforcingReconcileStatusAware, updateStatus := (instance).(apis.EnforcingReconcileStatusAware); updateStatus {
+	if enforcingReconcileStatusAware, updateStatus := (instance).(v1alpha1.EnforcingReconcileStatusAware); updateStatus {
 		condition := metav1.Condition{
 			Type:               apis.ReconcileError,
 			LastTransitionTime: metav1.Now(),
@@ -152,7 +153,7 @@ func (er *EnforcingReconciler) ManageError(context context.Context, instance cli
 			Reason:             apis.ReconcileErrorReason,
 			Status:             metav1.ConditionTrue,
 		}
-		status := apis.EnforcingReconcileStatus{
+		status := v1alpha1.EnforcingReconcileStatus{
 			Conditions:             apis.AddOrReplaceCondition(condition, enforcingReconcileStatusAware.GetEnforcingReconcileStatus().Conditions),
 			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
 			LockedPatchStatuses:    er.GetLockedPatchStatuses(instance),
@@ -175,7 +176,7 @@ func (er *EnforcingReconciler) ManageError(context context.Context, instance cli
 
 // ManageSuccess will update the status of the CR and return a successful reconcile result
 func (er *EnforcingReconciler) ManageSuccess(context context.Context, instance client.Object) (reconcile.Result, error) {
-	if enforcingReconcileStatusAware, updateStatus := (instance).(apis.EnforcingReconcileStatusAware); updateStatus {
+	if enforcingReconcileStatusAware, updateStatus := (instance).(v1alpha1.EnforcingReconcileStatusAware); updateStatus {
 		condition := metav1.Condition{
 			Type:               apis.ReconcileSuccess,
 			LastTransitionTime: metav1.Now(),
@@ -183,13 +184,12 @@ func (er *EnforcingReconciler) ManageSuccess(context context.Context, instance c
 			Reason:             apis.ReconcileSuccessReason,
 			Status:             metav1.ConditionTrue,
 		}
-		status := apis.EnforcingReconcileStatus{
+		status := v1alpha1.EnforcingReconcileStatus{
 			Conditions:             apis.AddOrReplaceCondition(condition, enforcingReconcileStatusAware.GetEnforcingReconcileStatus().Conditions),
 			LockedResourceStatuses: er.GetLockedResourceStatuses(instance),
 			LockedPatchStatuses:    er.GetLockedPatchStatuses(instance),
 		}
 		enforcingReconcileStatusAware.SetEnforcingReconcileStatus(status)
-		//er.log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 		err := er.GetClient().Status().Update(context, instance)
 		if err != nil {
 			if errors.IsResourceExpired(err) {
@@ -206,13 +206,13 @@ func (er *EnforcingReconciler) ManageSuccess(context context.Context, instance c
 }
 
 // GetLockedResourceStatuses returns the status for all LockedResources
-func (er *EnforcingReconciler) GetLockedResourceStatuses(instance client.Object) map[string]apis.Conditions {
+func (er *EnforcingReconciler) GetLockedResourceStatuses(instance client.Object) map[string]v1alpha1.Conditions {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
 		er.log.Error(err, "unable to get locked resource manager for", "parent", instance)
-		return map[string]apis.Conditions{}
+		return map[string]v1alpha1.Conditions{}
 	}
-	lockedResourceReconcileStatuses := map[string]apis.Conditions{}
+	lockedResourceReconcileStatuses := map[string]v1alpha1.Conditions{}
 	for _, lockedResourceReconciler := range lockedResourceManager.GetResourceReconcilers() {
 		status := lockedResourceReconciler.GetStatus()
 		if er.returnOnlyFailingStatuses {
@@ -227,21 +227,27 @@ func (er *EnforcingReconciler) GetLockedResourceStatuses(instance client.Object)
 }
 
 // GetLockedPatchStatuses returns the status for all LockedPatches
-func (er *EnforcingReconciler) GetLockedPatchStatuses(instance client.Object) map[string]apis.Conditions {
+func (er *EnforcingReconciler) GetLockedPatchStatuses(instance client.Object) map[string]map[string]v1alpha1.Conditions {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
 		er.log.Error(err, "unable to get locked resource manager for", "parent", instance)
-		return map[string]apis.Conditions{}
+		return nil
 	}
-	lockedPatchReconcileStatuses := map[string]apis.Conditions{}
+	lockedPatchReconcileStatuses := map[string]map[string]v1alpha1.Conditions{}
 	for _, lockedPatchReconciler := range lockedResourceManager.GetPatchReconcilers() {
 		status := lockedPatchReconciler.GetStatus()
-		if er.returnOnlyFailingStatuses {
-			if lastCondition, ok := apis.GetLastCondition(status); ok && apis.IsErrorCondition(lastCondition) {
-				lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()] = status
+		for key, conditions := range status {
+			if _, ok := lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()]; !ok {
+				lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()] = map[string]v1alpha1.Conditions{}
 			}
-		} else {
-			lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()] = status
+			if er.returnOnlyFailingStatuses {
+				if lastCondition, ok := apis.GetLastCondition(status[key]); ok && apis.IsErrorCondition(lastCondition) {
+
+					lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()][key] = conditions
+				}
+			} else {
+				lockedPatchReconcileStatuses[lockedPatchReconciler.GetKey()][key] = conditions
+			}
 		}
 	}
 	return lockedPatchReconcileStatuses
@@ -252,13 +258,13 @@ func (er *EnforcingReconciler) Terminate(instance client.Object, deleteResources
 	defer er.removeLockedResourceManager(instance)
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
 	if err != nil {
-		er.log.V(1).Info("unable to get locked resource manager for", "parent", instance)
+		er.log.Error(err, "unable to get locked resource manager for", "parent", instance)
 		return err
 	}
 	if lockedResourceManager.IsStarted() {
 		err = lockedResourceManager.Stop(deleteResources)
 		if err != nil {
-			er.log.V(1).Info("unable to stop ", "lockedResourceManager", lockedResourceManager)
+			er.log.Error(err, "unable to stop ", "lockedResourceManager", lockedResourceManager)
 			return err
 		}
 	}

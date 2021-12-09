@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,7 +32,7 @@ type EnforcingPatchSpec struct {
 	// Patches is a list of pacthes that should be encforced at runtime.
 	// +kubebuilder:validation:Optional
 	// +listType=atomic
-	Patches []apis.Patch `json:"patches,omitempty"`
+	Patches map[string]Patch `json:"patches,omitempty"`
 }
 
 // EnforcingPatchStatus defines the observed state of EnforcingPatch
@@ -41,14 +40,14 @@ type EnforcingPatchStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	apis.EnforcingReconcileStatus `json:",inline,omitempty"`
+	EnforcingReconcileStatus `json:",inline,omitempty"`
 }
 
-func (m *EnforcingPatch) GetEnforcingReconcileStatus() apis.EnforcingReconcileStatus {
+func (m *EnforcingPatch) GetEnforcingReconcileStatus() EnforcingReconcileStatus {
 	return m.Status.EnforcingReconcileStatus
 }
 
-func (m *EnforcingPatch) SetEnforcingReconcileStatus(reconcileStatus apis.EnforcingReconcileStatus) {
+func (m *EnforcingPatch) SetEnforcingReconcileStatus(reconcileStatus EnforcingReconcileStatus) {
 	m.Status.EnforcingReconcileStatus = reconcileStatus
 }
 

@@ -61,7 +61,6 @@ func (r *EnforcingCRDReconciler) Reconcile(context context.Context, req ctrl.Req
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	log.V(1).Info("about to reconcile", "instance version", instance.GetResourceVersion())
 	if ok := r.IsInitialized(instance); !ok {
 		err := r.GetClient().Update(context, instance)
 		if err != nil {
