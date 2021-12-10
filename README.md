@@ -27,7 +27,7 @@ Most of the Utility methods receive a `context.Context` parameter. Normally this
 Utility methods are currently organized in the following folders:
 
 1. crud: idempotent create/update/delete functions.
-2. discoveryclient: methods related to the discovery client, topically used to load `apiResource` objects.
+2. discoveryclient: methods related to the discovery client, typically used to load `apiResource` objects.
 3. dynamicclient: methods related to building client based on object whose type is not known at compile time.
 4. templates: utility methods for dealing with templates whose output is an object or a list of objects. 
 
