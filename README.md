@@ -22,7 +22,7 @@ This library covers three main areas:
 
 Prior to version v2.x the general philosophy of this library was that new operator would inherint from REcorncileBase and in doing so they would havbe access to a bunch of utility methods.
 With release v2.0.0 a new approach is avaibale. Utility methods are callable by any operator havintg to inehrit. This makes it easier to use this library and does not conflict with autogenerate code from kube-builder and operator-sdk.
-Most of the Utility methods receive a context.Context parameter. Normally this context must be initialized with a `logr.Logger` and a `rest.Config`. Some utility methods may require more, see each individual documentation.
+Most of the Utility methods receive a `context.Context` parameter. Normally this context must be initialized with a `logr.Logger` and a `rest.Config`. Some utility methods may require more, see each individual documentation.
 
 Utility methods are current organized in the following folders:
 
