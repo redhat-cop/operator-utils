@@ -13,7 +13,7 @@ This library layers on top of the Operator SDK and with the objective of helping
 
 This library covers three main areas:
 
-1. [Utility Method](#Utility-Methods) Utility methods that are callable by any operator.
+1. [Utility Methods](#Utility-Methods) Utility methods that are callable by any operator.
 2. [Idempotent methods](#Idempotent-Methods-to-Manipulate-Resources) to manipulate resources and arrays of resources
 3. [Basic operator lifecycle](#Basic-Operator-Lifecycle-Management) needs (validation, initialization, status and error management, finalization)
 4. [Enforcing resources operator support](#Enforcing-Resource-Operator-Support). For those operators which calculate a set of resources that need to exist and then enforce them, generalized support for the enforcing phase is provided.
