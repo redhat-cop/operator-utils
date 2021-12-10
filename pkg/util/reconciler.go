@@ -111,74 +111,6 @@ func (r *ReconcilerBase) GetDiscoveryClient() (*discovery.DiscoveryClient, error
 	return discovery.NewDiscoveryClientForConfig(r.GetRestConfig())
 }
 
-// // GetDynamicClientOnAPIResource returns a dynamic client on an APIResource. This client can be further namespaced.
-// func (r *ReconcilerBase) GetDynamicClientOnAPIResource(resource metav1.APIResource) (dynamic.NamespaceableResourceInterface, error) {
-// 	return r.getDynamicClientOnGVR(schema.GroupVersionResource{
-// 		Group:    resource.Group,
-// 		Version:  resource.Version,
-// 		Resource: resource.Name,
-// 	})
-// }
-
-// func (r *ReconcilerBase) getDynamicClientOnGVR(gvr schema.GroupVersionResource) (dynamic.NamespaceableResourceInterface, error) {
-
-// 	intf, err := dynamic.NewForConfig(r.GetRestConfig())
-// 	if err != nil {
-// 		log.Error(err, "Unable to get dynamic client")
-// 		return nil, err
-// 	}
-// 	res := intf.Resource(gvr)
-// 	return res, nil
-// }
-
-// GetDynamicClientOnUnstructured returns a dynamic client on an Unstructured type. This client can be further namespaced.
-// TODO consider refactoring using apimachinery.RESTClientForGVK in controller-runtime
-// func (r *ReconcilerBase) GetDynamicClientOnUnstructured(obj unstructured.Unstructured) (dynamic.ResourceInterface, error) {
-// 	apiRes, err := r.getAPIReourceForUnstructured(obj)
-// 	if err != nil {
-// 		log.Error(err, "Unable to get apiresource from unstructured", "unstructured", obj)
-// 		return nil, err
-// 	}
-// 	dc, err := r.GetDynamicClientOnAPIResource(apiRes)
-// 	if err != nil {
-// 		log.Error(err, "Unable to get namespaceable dynamic client from ", "resource", apiRes)
-// 		return nil, err
-// 	}
-// 	if apiRes.Namespaced {
-// 		return dc.Namespace(obj.GetNamespace()), nil
-// 	}
-// 	return dc, nil
-// }
-
-// Deprecated - please use getAPIResourceForUnstructured instead.
-// func (r *ReconcilerBase) getAPIReourceForUnstructured(obj unstructured.Unstructured) (metav1.APIResource, error) {
-// 	return r.getAPIResourceForUnstructured(obj)
-// }
-
-// func (r *ReconcilerBase) getAPIResourceForUnstructured(obj unstructured.Unstructured) (metav1.APIResource, error) {
-// 	gvk := obj.GetObjectKind().GroupVersionKind()
-// 	res := metav1.APIResource{}
-// 	discoveryClient, err := r.GetDiscoveryClient()
-// 	if err != nil {
-// 		log.Error(err, "Unable to create discovery client")
-// 		return res, err
-// 	}
-// 	resList, err := discoveryClient.ServerResourcesForGroupVersion(gvk.GroupVersion().String())
-// 	if err != nil {
-// 		log.Error(err, "Unable to retrieve resouce list for:", "groupversion", gvk.GroupVersion().String())
-// 		return res, err
-// 	}
-// 	for _, resource := range resList.APIResources {
-// 		if resource.Kind == gvk.Kind && !strings.Contains(resource.Name, "/") {
-// 			res = resource
-// 			res.Group = gvk.Group
-// 			res.Version = gvk.Version
-// 			break
-// 		}
-// 	}
-// 	return res, nil
-// }
-
 // CreateOrUpdateResource creates a resource if it doesn't exist, and updates (overwrites it), if it exist
 // if owner is not nil, the owner field os set
 // if namespace is not "", the namespace field of the object is overwritten with the passed value
@@ -440,28 +372,6 @@ func (r *ReconcilerBase) ManageSuccessWithRequeue(context context.Context, obj c
 func (r *ReconcilerBase) ManageSuccess(context context.Context, obj client.Object) (reconcile.Result, error) {
 	return r.ManageSuccessWithRequeue(context, obj, 0)
 }
-
-//IsAPIResourceAvailable checks of a give GroupVersionKind is available in the running apiserver
-// func (r *ReconcilerBase) IsAPIResourceAvailable(GVK schema.GroupVersionKind) (bool, error) {
-// 	discoveryClient, _ := r.GetDiscoveryClient()
-
-// 	// Query for known OpenShift API resource to verify it is available
-// 	apiResources, err := discoveryClient.ServerResourcesForGroupVersion(GVK.GroupVersion().String())
-
-// 	if err != nil {
-// 		if apierrors.IsNotFound(err) {
-// 			return false, nil
-// 		}
-// 		log.Error(err, "Unable to retrive resources for", "GVK", GVK)
-// 		return false, err
-// 	}
-// 	for _, resource := range apiResources.APIResources {
-// 		if resource.Kind == GVK.Kind {
-// 			return true, nil
-// 		}
-// 	}
-// 	return false, nil
-// }
 
 // GetDirectClient returns a non cached client
 func (r *ReconcilerBase) GetDirectClient() (client.Client, error) {

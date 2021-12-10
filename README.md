@@ -20,16 +20,16 @@ This library covers three main areas:
 
 ## Utility Methods
 
-Prior to version v2.x the general philosophy of this library was that new operator would inherint from REcorncileBase and in doing so they would havbe access to a bunch of utility methods.
-With release v2.0.0 a new approach is avaibale. Utility methods are callable by any operator havintg to inehrit. This makes it easier to use this library and does not conflict with autogenerate code from kube-builder and operator-sdk.
-Most of the Utility methods receive a `context.Context` parameter. Normally this context must be initialized with a `logr.Logger` and a `rest.Config`. Some utility methods may require more, see each individual documentation.
+Prior to version v2.x the general philosophy of this library was that new operator would inherit from `ReconcilerBase` and in doing so they would have access to a bunch of utility methods.
+With release v2.0.0 a new approach is available. Utility methods are callable by any operator having to inherit. This makes it easier to use this library and does not conflict with autogenerate code from `kube-builder` and `operator-sdk`.
+Most of the Utility methods receive a context.Context parameter. Normally this context must be initialized with a `logr.Logger` and a `rest.Config`. Some utility methods may require more, see each individual documentation.
 
 Utility methods are currently organized in the following folders:
 
 1. crud: idempotent create/update/delete functions.
 2. discoveryclient: methods related to the discovery client, typically used to load `apiResource` objects.
 3. dynamicclient: methods related to building client based on object whose type is not known at compile time.
-4. templates: utility methods for dealing with templates whose output is an object or a list of objects. 
+4. templates: utility methods for dealing with templates whose output is an object or a list of objects.
 
 ## Idempotent Methods to Manipulate Resources
 
