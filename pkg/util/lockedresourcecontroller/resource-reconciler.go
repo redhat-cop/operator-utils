@@ -11,6 +11,7 @@ import (
 
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/redhat-cop/operator-utils/pkg/util/dynamicclient"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -106,22 +108,20 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 }
 
 // Reconcile contains the reconcile logic for LockedResourceReconciler
-func (lor *LockedResourceReconciler) Reconcile(context context.Context, request reconcile.Request) (reconcile.Result, error) {
+func (lor *LockedResourceReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	lor.log.Info("reconcile called for", "object", apis.GetKeyLong(&lor.Resource), "request", request)
-	//err := lor.CreateOrUpdateResource(nil, "", &lor.Object)
-
-	// Fetch the  instance
-	//instance := &unstructured.Unstructured{}
-	client, err := lor.GetDynamicClientOnUnstructured(lor.Resource)
+	ctx = context.WithValue(ctx, "restConfig", lor.GetRestConfig())
+	ctx = log.IntoContext(ctx, lor.log)
+	client, err := dynamicclient.GetDynamicClientOnUnstructured(ctx, &lor.Resource)
 	if err != nil {
 		lor.log.Error(err, "unable to get dynamicClient", "on object", lor.Resource)
 		return lor.manageErrorNoInstance(err)
 	}
-	instance, err := client.Get(context, lor.Resource.GetName(), v1.GetOptions{})
+	instance, err := client.Get(ctx, lor.Resource.GetName(), v1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// if not found we have to recreate it.
-			err = lor.CreateOrUpdateResource(context, nil, "", lor.Resource.DeepCopy())
+			err = lor.CreateOrUpdateResource(ctx, nil, "", lor.Resource.DeepCopy())
 			if err != nil {
 				lor.log.Error(err, "unable to create or update", "object", lor.Resource)
 				return lor.manageErrorNoInstance(err)
@@ -132,7 +132,6 @@ func (lor *LockedResourceReconciler) Reconcile(context context.Context, request 
 		lor.log.Error(err, "unable to lookup", "object", lor.Resource)
 		return lor.manageError(instance, err)
 	}
-	//lor.log.V(1).Info("determining if resources are equal", "desired", lor.Resource, "current", instance)
 	equal, err := lor.isEqual(instance)
 	if err != nil {
 		lor.log.Error(err, "unable to determine if", "object", lor.Resource, "is equal to object", instance)
@@ -150,8 +149,7 @@ func (lor *LockedResourceReconciler) Reconcile(context context.Context, request 
 			lor.log.Error(err, "unable to marshall ", "object", patch)
 			return lor.manageError(instance, err)
 		}
-		//lor.log.V(1).Info("executing", "patch", string(patchBytes), "on object", instance)
-		_, err = client.Patch(context, instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
+		_, err = client.Patch(ctx, instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			lor.log.Error(err, "unable to patch ", "object", instance, "with patch", string(patchBytes))
 			return lor.manageError(instance, err)
@@ -164,7 +162,6 @@ func (lor *LockedResourceReconciler) Reconcile(context context.Context, request 
 
 func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured) (bool, error) {
 	left, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
-	//lor.log.V(1).Info("resource", "desired", left)
 	if err != nil {
 		return false, err
 	}
@@ -172,7 +169,6 @@ func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured
 	if err != nil {
 		return false, err
 	}
-	//lor.log.V(1).Info("resource", "current", right)
 	return reflect.DeepEqual(left, right), nil
 }
 

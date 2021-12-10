@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,7 +31,7 @@ type EnforcingCRDSpec struct {
 	// Resources is a list of resource manifests that should be locked into the specified configuration
 	// +kubebuilder:validation:Optional
 	// +listType=atomic
-	Resources []apis.LockedResource `json:"resources,omitempty"`
+	Resources []LockedResource `json:"resources,omitempty"`
 }
 
 // EnforcingCRDStatus defines the observed state of EnforcingCRD
@@ -41,14 +40,14 @@ type EnforcingCRDStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// +kubebuilder:validation:Optional
-	apis.EnforcingReconcileStatus `json:",inline,omitempty"`
+	EnforcingReconcileStatus `json:",inline,omitempty"`
 }
 
-func (m *EnforcingCRD) GetEnforcingReconcileStatus() apis.EnforcingReconcileStatus {
+func (m *EnforcingCRD) GetEnforcingReconcileStatus() EnforcingReconcileStatus {
 	return m.Status.EnforcingReconcileStatus
 }
 
-func (m *EnforcingCRD) SetEnforcingReconcileStatus(reconcileStatus apis.EnforcingReconcileStatus) {
+func (m *EnforcingCRD) SetEnforcingReconcileStatus(reconcileStatus EnforcingReconcileStatus) {
 	m.Status.EnforcingReconcileStatus = reconcileStatus
 }
 

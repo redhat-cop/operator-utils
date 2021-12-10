@@ -1,27 +1,77 @@
+
+# ---
+# # test single instance namespaced
+# apiVersion: operator-utils.example.io/v1alpha1
+# kind: EnforcingPatch
+# metadata:
+#   name: test-field-patch
+# spec:
+#   patches:
+#   - name: ciao1
+#     targetObjectRef:
+#       apiVersion: v1
+#       kind: ServiceAccount
+#       name: test
+#       namespace: patch-test
+#     patchTemplate: |
+#       metadata:
+#         annotations:
+#           {{ (index . 1) }}: {{ (index . 2) }}
+#     patchType: application/strategic-merge-patch+json
+#     sourceObjectRefs:
+#     - apiVersion: v1
+#       kind: Namespace
+#       name: default
+#       fieldPath: $.metadata.uid
+#     - apiVersion: v1
+#       kind: ServiceAccount
+#       name: default
+#       namespace: default
+#       fieldPath: $.metadata.uid
+---
+# test multiple instances namespaced
+# apiVersion: operator-utils.example.io/v1alpha1
+# kind: EnforcingPatch
+# metadata:
+#   name: test-patch-multiple
+# spec:
+#   patches:
+#   - name: ciao1
+#     targetObjectRef:
+#       apiVersion: v1
+#       kind: ServiceAccount
+#       name: deployer
+#     patchTemplate: |
+#       metadata:
+#         annotations:
+#           {{ (index . 0).metadata.uid }}: {{ (index . 1) }}
+#     patchType: application/strategic-merge-patch+json
+#     sourceObjectRefs:
+#     - apiVersion: v1
+#       kind: ServiceAccount
+#       name: default
+#       namespace: "{{ .metadata.namespace }}"
+#       fieldPath: $.metadata.uid  
+---
+# test multiple instances cluster
 apiVersion: operator-utils.example.io/v1alpha1
 kind: EnforcingPatch
 metadata:
-  name: test-field-patch
+  name: test-patch-multiple-cluster-level
 spec:
   patches:
-  - id: ciao1
+  - name: ciao1
     targetObjectRef:
       apiVersion: v1
-      kind: ServiceAccount
-      name: test
-      namespace: test-enforcing-patch
+      kind: Namespace
     patchTemplate: |
       metadata:
         annotations:
-          {{ (index . 0) }}: {{ (index . 1) }}
+          {{ (index . 0).metadata.uid }}: {{ (index . 1) }}
     patchType: application/strategic-merge-patch+json
     sourceObjectRefs:
     - apiVersion: v1
-      kind: Namespace
-      name: default
-      fieldPath: $.metadata.uid
-    - apiVersion: v1
       kind: ServiceAccount
       name: default
-      namespace: default
-      fieldPath: $.metadata.uid  
+      namespace: "{{ .metadata.name }}"
+      fieldPath: $.metadata.uid 

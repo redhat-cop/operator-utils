@@ -27,21 +27,19 @@ func IsBeingDeleted(obj client.Object) bool {
 }
 
 // HasFinalizer returns whether this object has the passed finalizer
+// Deprecated use controllerutil.ContainsFinalizer
 func HasFinalizer(obj client.Object, finalizer string) bool {
-	for _, fin := range obj.GetFinalizers() {
-		if fin == finalizer {
-			return true
-		}
-	}
-	return false
+	return controllerutil.ContainsFinalizer(obj, finalizer)
 }
 
 // AddFinalizer adds the passed finalizer this object
+// Deprecated use controllerutil.AddFinalizer
 func AddFinalizer(obj client.Object, finalizer string) {
 	controllerutil.AddFinalizer(obj, finalizer)
 }
 
 // RemoveFinalizer removes the passed finalizer from object
+// Deprecated use controllerutil.RemoveFinalizer
 func RemoveFinalizer(obj client.Object, finalizer string) {
 	controllerutil.RemoveFinalizer(obj, finalizer)
 }

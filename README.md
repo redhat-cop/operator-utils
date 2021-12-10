@@ -13,9 +13,23 @@ This library layers on top of the Operator SDK and with the objective of helping
 
 This library covers three main areas:
 
-1. [Idempotent methods](#Idempotent-Methods-to-Manipulate-Resources) to manipulate resources and arrays of resources
-2. [Basic operator lifecycle](#Basic-Operator-Lifecycle-Management) needs (validation, initialization, status and error management, finalization)
-3. [Enforcing resources operator support](#Enforcing-Resource-Operator-Support). For those operators which calculate a set of resources that need to exist and then enforce them, generalized support for the enforcing phase is provided.
+1. [Utility Methods](#Utility-Methods) Utility methods that are callable by any operator.
+2. [Idempotent methods](#Idempotent-Methods-to-Manipulate-Resources) to manipulate resources and arrays of resources
+3. [Basic operator lifecycle](#Basic-Operator-Lifecycle-Management) needs (validation, initialization, status and error management, finalization)
+4. [Enforcing resources operator support](#Enforcing-Resource-Operator-Support). For those operators which calculate a set of resources that need to exist and then enforce them, generalized support for the enforcing phase is provided.
+
+## Utility Methods
+
+Prior to version v2.x the general philosophy of this library was that new operator would inherit from `ReconcilerBase` and in doing so they would have access to a bunch of utility methods.
+With release v2.0.0 a new approach is available. Utility methods are callable by any operator having to inherit. This makes it easier to use this library and does not conflict with autogenerate code from `kube-builder` and `operator-sdk`.
+Most of the Utility methods receive a context.Context parameter. Normally this context must be initialized with a `logr.Logger` and a `rest.Config`. Some utility methods may require more, see each individual documentation.
+
+Utility methods are currently organized in the following folders:
+
+1. crud: idempotent create/update/delete functions.
+2. discoveryclient: methods related to the discovery client, typically used to load `apiResource` objects.
+3. dynamicclient: methods related to building client based on object whose type is not known at compile time.
+4. templates: utility methods for dealing with templates whose output is an object or a list of objects.
 
 ## Idempotent Methods to Manipulate Resources
 
@@ -28,6 +42,15 @@ The following idempotent methods are provided (and their corresponding array ver
 Also there are utility methods to manage finalizers, test ownership and process templates of resources.
 
 ## Basic Operator Lifecycle Management
+
+---
+
+Note
+
+This part of the library is largely deprecated. For initialization and defaulting a MutatingWebHook should be used. For validation a Validating WebHook should be used.
+The part regarding the finalization is still relevant.
+
+---
 
 To get started with this library do the following:
 
@@ -172,9 +195,11 @@ return r.ManageSuccessWithRequeue(ctx, instance, 3*time.Second)
 ```
 
 or simply using the convenience function:
+
 ```go
 return r.ManageOutcomeWithRequeue(ctx, instance, err, 3*time.Second)
 ```
+
 which will delegate to the error or success variant depending on `err` being `nil` or not.
 
 ### Managing CR Finalization
@@ -287,17 +312,33 @@ In some situations, a patch must be parametric on some state of the cluster. For
 A patch is defined as follows:
 
 ```golang
-type LockedPatch struct {
-  ID               string                   `json:"id,omitempty"`
-  SourceObjectRefs []corev1.ObjectReference `json:"sourceObjectRefs,omitempty"`
-  TargetObjectRef  corev1.ObjectReference   `json:"targetObjectRef,omitempty"`
-  PatchType        types.PatchType          `json:"patchType,omitempty"`
-  PatchTemplate    string                   `json:"patchTemplate,omitempty"`
-  Template         template.Template        `json:"-"`
+type LockedPatch struct { 
+  Name             string                           `json:"name,omitempty"`
+  SourceObjectRefs []utilsapi.SourceObjectReference `json:"sourceObjectRefs,omitempty"`
+  TargetObjectRef  utilsapi.TargetObjectReference   `json:"targetObjectRef,omitempty"`
+  PatchType        types.PatchType                  `json:"patchType,omitempty"`
+  PatchTemplate    string                           `json:"patchTemplate,omitempty"`
+  Template         template.Template                `json:"-"`
 }
 ```
 
 the targetObjectRef and sourceObjectRefs are watched for changes by the reconciler.
+
+targetObjectRef can select multiple objects, this is the logic
+
+| Namespaced Type | Namespace | Name | Selection type |
+| --- | --- | --- | --- |
+| yes | null | null | multiple selection across namespaces |
+| yes | null | not null | multiple selection across namespaces where the name corresponds to the passed name |
+| yes | not null | null | multiple selection within a namespace |
+| yes | not null | not nul | single selection |
+| no | N/A | null | multiple selection  |
+| no | N/A | not null | single selection |
+
+Selection can be further narrowed down by filtering by labels and/or annotations. The patch will be applied to all of the selected instances.
+
+Name and Namespace of sourceRefObjects are interpreted as golang templates with the current target instance and the only parameter. This allows to select different source object for each target object.
+
 The relevant part of the operator code would look like this:
 
 ```golang
@@ -409,6 +450,17 @@ kustomize build ./config/local-development | oc apply -f - -n operator-utils-ope
 export token=$(oc serviceaccounts get-token 'operator-utils-operator-controller-manager' -n operator-utils-operator-local)
 oc login --token ${token}
 make run ENABLE_WEBHOOKS=false
+```
+
+### testing
+
+Patches
+
+```shell
+oc new-project patch-test
+oc create sa test -n patch-test
+oc adm policy add-cluster-role-to-user cluster-reader -z default -n patch-test
+oc apply -f ./test/enforcing-patch.yaml -n patch-test
 ```
 
 ## Building/Pushing the operator image

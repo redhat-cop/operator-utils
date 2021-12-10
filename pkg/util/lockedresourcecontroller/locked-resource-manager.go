@@ -9,10 +9,12 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/redhat-cop/operator-utils/pkg/util/discoveryclient"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource/lockedresourceset"
 	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
+	"github.com/redhat-cop/operator-utils/pkg/util/templates"
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -23,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -91,15 +94,15 @@ func (lrm *LockedResourceManager) SetPatches(patches []lockedpatch.LockedPatch) 
 		return errors.New("cannot set resources while enforcing is on")
 	}
 	// verifyPatchID Uniqueness
-	lockedPathMap := map[string]lockedpatch.LockedPatch{}
+	lockedPatchMap := map[string]lockedpatch.LockedPatch{}
 	for _, lockedPatch := range patches {
-		if lockedPatch.ID == "" {
+		if lockedPatch.Name == "" {
 			return errors.New("lockedPatch.ID must be initialized")
 		}
-		if _, ok := lockedPathMap[lockedPatch.ID]; ok {
-			return errors.New("Duplicate patch id: " + lockedPatch.ID)
+		if _, ok := lockedPatchMap[lockedPatch.Name]; ok {
+			return errors.New("Duplicate patch id: " + lockedPatch.Name)
 		}
-		lockedPathMap[lockedPatch.ID] = lockedPatch
+		lockedPatchMap[lockedPatch.Name] = lockedPatch
 	}
 	err := lrm.validateLockedPatches(patches)
 	if err != nil {
@@ -253,9 +256,9 @@ func (lrm *LockedResourceManager) IsSamePatches(patches []lockedpatch.LockedPatc
 	newPatchMap, newPatches := lockedpatch.GetLockedPatchMap(patches)
 	currentPatchSet := strset.New(currentPatches...)
 	newPatchSet := strset.New(newPatches...)
-	leftDifference = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Difference(currentPatchSet, newPatchSet), currentPatchMap)
-	intersection = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Intersection(currentPatchSet, newPatchSet), newPatchMap)
-	rightDifference = lockedpatch.GetLockedPatchedFromLockedPatchesSet(strset.Difference(newPatchSet, currentPatchSet), newPatchMap)
+	leftDifference = lockedpatch.GetLockedPatchesFromLockedPatcheSet(strset.Difference(currentPatchSet, newPatchSet), currentPatchMap)
+	intersection = lockedpatch.GetLockedPatchesFromLockedPatcheSet(strset.Intersection(currentPatchSet, newPatchSet), newPatchMap)
+	rightDifference = lockedpatch.GetLockedPatchesFromLockedPatcheSet(strset.Difference(newPatchSet, currentPatchSet), newPatchMap)
 	same = currentPatchSet.IsEqual(newPatchSet)
 	//we also need to check intersection to see if there are differences in the pacth definition
 	for _, patchID := range strset.Intersection(currentPatchSet, newPatchSet).List() {
@@ -301,6 +304,9 @@ func (lrm *LockedResourceManager) GetResourceReconcilers() []*LockedResourceReco
 }
 
 func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lockedresource.LockedResource) error {
+	ctx := context.TODO()
+	ctx = context.WithValue(ctx, "restConfig", lrm.config)
+	ctx = log.IntoContext(ctx, lrm.log)
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
 	if err != nil {
 		lrm.log.Error(err, "unable to create discovery client")
@@ -321,24 +327,29 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 	schemaValidation := validation.NewSchemaValidation(resources)
 	result := &multierror.Error{}
 	for _, lockedResource := range lockedResources {
-		//lrm.log.V(1).Info("validating", "resource", lockedResource.Unstructured)
-		resource, err := util.IsUnstructuredDefined(&lockedResource.Unstructured, discoveryClient)
+		defined, err := discoveryclient.IsUnstructuredDefined(ctx, &lockedResource.Unstructured)
 		if err != nil {
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			result = multierror.Append(result, err)
 			continue
 		}
-		if resource == nil {
+		if !defined {
 			result = multierror.Append(result, errors.New("resource type:"+lockedResource.Unstructured.GroupVersionKind().String()+"not defined"))
 			continue
 		}
-		err = util.ValidateUnstructured(&lockedResource.Unstructured, schemaValidation)
+		err = templates.ValidateUnstructured(ctx, &lockedResource.Unstructured, schemaValidation)
 		if err != nil {
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			result = multierror.Append(result, err)
 			continue
 		}
-		if resource.Namespaced && lockedResource.Unstructured.GetNamespace() == "" {
+		namespaced, err := discoveryclient.IsUnstructuredNamespaced(ctx, &lockedResource.Unstructured)
+		if err != nil {
+			lrm.log.Error(err, "unable to determine if namespaced", "unstructured", lockedResource.Unstructured)
+			result = multierror.Append(result, err)
+			continue
+		}
+		if namespaced && lockedResource.Unstructured.GetNamespace() == "" {
 			err := errors.New("namespaced resources must specify a namespace")
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			result = multierror.Append(result, err)
@@ -361,32 +372,33 @@ func (lrm *LockedResourceManager) GetPatchReconcilers() []*LockedPatchReconciler
 }
 
 func (lrm *LockedResourceManager) validateLockedPatches(patches []lockedpatch.LockedPatch) error {
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(lrm.config)
-	if err != nil {
-		lrm.log.Error(err, "unable to create discovery client")
-		return err
-	}
+	ctx := context.TODO()
+	ctx = context.WithValue(ctx, "restConfig", lrm.config)
+	ctx = log.IntoContext(ctx, lrm.log)
 	result := &multierror.Error{}
 	for _, lockedPatch := range patches {
-		objrefs := append(lockedPatch.SourceObjectRefs, lockedPatch.TargetObjectRef)
-		for _, objref := range objrefs {
-			//lrm.log.V(1).Info("validating", "objref", objref)
-			resource, err := util.IsGVKDefined(objref.GroupVersionKind(), discoveryClient)
+		GVKs := []schema.GroupVersionKind{}
+		for i := range lockedPatch.SourceObjectRefs {
+			GVKs = append(GVKs, schema.FromAPIVersionAndKind(lockedPatch.SourceObjectRefs[i].APIVersion, lockedPatch.SourceObjectRefs[i].Kind))
+		}
+		GVKs = append(GVKs, schema.FromAPIVersionAndKind(lockedPatch.TargetObjectRef.APIVersion, lockedPatch.TargetObjectRef.Kind))
+		for i := range GVKs {
+			defined, err := discoveryclient.IsGVKDefined(ctx, GVKs[i])
 			if err != nil {
-				lrm.log.Error(err, "unable to validate", "objectref", objref)
+				lrm.log.Error(err, "undefined resource in this cluster", "gvk", GVKs[i])
 				result = multierror.Append(result, err)
 				continue
 			}
-			if resource == nil {
-				result = multierror.Append(result, errors.New("resource type:"+objref.GroupVersionKind().String()+"not defined"))
+			if !defined {
+				result = multierror.Append(result, errors.New("resource type:"+GVKs[i].String()+"not defined"))
 				continue
 			}
-			if resource.Namespaced && objref.Namespace == "" {
-				err := errors.New("namespace must be specified for namespaced resources")
-				lrm.log.Error(err, "unable to validate", "objectref", objref)
-				result = multierror.Append(result, err)
-				continue
-			}
+			// if resource.Namespaced && objref.Namespace == "" {
+			// 	err := errors.New("namespace must be specified for namespaced resources")
+			// 	lrm.log.Error(err, "unable to validate", "objectref", objref)
+			// 	result = multierror.Append(result, err)
+			// 	continue
+			// }
 		}
 	}
 	if result.ErrorOrNil() != nil {

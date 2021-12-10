@@ -3,10 +3,10 @@ package lockedpatch
 import (
 	"text/template"
 
-	"github.com/redhat-cop/operator-utils/pkg/util"
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/go-logr/logr"
+	utilsapi "github.com/redhat-cop/operator-utils/api/v1alpha1"
+	utilstemplate "github.com/redhat-cop/operator-utils/pkg/util/templates"
 	"github.com/scylladb/go-set/strset"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,17 +16,17 @@ var log = ctrl.Log.WithName("lockedpatch")
 
 //LockedPatch represents a patch that needs to be enforced.
 type LockedPatch struct {
-	ID               string                   `json:"id,omitempty"`
-	SourceObjectRefs []corev1.ObjectReference `json:"sourceObjectRefs,omitempty"`
-	TargetObjectRef  corev1.ObjectReference   `json:"targetObjectRef,omitempty"`
-	PatchType        types.PatchType          `json:"patchType,omitempty"`
-	PatchTemplate    string                   `json:"patchTemplate,omitempty"`
-	Template         template.Template        `json:"-"`
+	Name             string                           `json:"name,omitempty"`
+	SourceObjectRefs []utilsapi.SourceObjectReference `json:"sourceObjectRefs,omitempty"`
+	TargetObjectRef  utilsapi.TargetObjectReference   `json:"targetObjectRef,omitempty"`
+	PatchType        types.PatchType                  `json:"patchType,omitempty"`
+	PatchTemplate    string                           `json:"patchTemplate,omitempty"`
+	Template         template.Template                `json:"-"`
 }
 
 //GetKey returns a not so unique key for a patch
 func (lp *LockedPatch) GetKey() string {
-	return lp.ID
+	return lp.Name
 }
 
 //GetLockedPatchMap returns a map and a slice of LockedPatch, useful for set based operations. Needed for internal implementation.
@@ -34,13 +34,13 @@ func GetLockedPatchMap(lockedPatches []LockedPatch) (map[string]LockedPatch, []s
 	lockedPatchMap := map[string]LockedPatch{}
 	lockedPatcheIDs := []string{}
 	for _, lockedPatch := range lockedPatches {
-		lockedPatchMap[lockedPatch.ID] = lockedPatch
-		lockedPatcheIDs = append(lockedPatcheIDs, lockedPatch.ID)
+		lockedPatchMap[lockedPatch.Name] = lockedPatch
+		lockedPatcheIDs = append(lockedPatcheIDs, lockedPatch.Name)
 	}
 	return lockedPatchMap, lockedPatcheIDs
 }
 
-func GetLockedPatchedFromLockedPatchesSet(lockedPatchSet *strset.Set, lockedPatchMap map[string]LockedPatch) []LockedPatch {
+func GetLockedPatchesFromLockedPatcheSet(lockedPatchSet *strset.Set, lockedPatchMap map[string]LockedPatch) []LockedPatch {
 	lockedPatches := []LockedPatch{}
 	for _, lockedPatchID := range lockedPatchSet.List() {
 		lockedPatches = append(lockedPatches, lockedPatchMap[lockedPatchID])
@@ -48,11 +48,11 @@ func GetLockedPatchedFromLockedPatchesSet(lockedPatchSet *strset.Set, lockedPatc
 	return lockedPatches
 }
 
-//GetLockedPatches retunrs a slice of LockedPatches from a slicd of apis.Patches
-func GetLockedPatches(patches []apis.Patch, config *rest.Config) ([]LockedPatch, error) {
+//GetLockedPatches returns a slice of LockedPatches from a slice of apis.Patches
+func GetLockedPatches(patches map[string]utilsapi.Patch, config *rest.Config, logger logr.Logger) ([]LockedPatch, error) {
 	lockedPatches := []LockedPatch{}
-	for _, patch := range patches {
-		template, err := template.New(patch.PatchTemplate).Funcs(util.AdvancedTemplateFuncMap(config)).Parse(patch.PatchTemplate)
+	for key, patch := range patches {
+		template, err := template.New(patch.PatchTemplate).Funcs(utilstemplate.AdvancedTemplateFuncMap(config, logger)).Parse(patch.PatchTemplate)
 		if err != nil {
 			log.Error(err, "unable to parse ", "template", patch.PatchTemplate)
 			return []LockedPatch{}, err
@@ -63,7 +63,7 @@ func GetLockedPatches(patches []apis.Patch, config *rest.Config) ([]LockedPatch,
 			PatchType:        patch.PatchType,
 			TargetObjectRef:  patch.TargetObjectRef,
 			Template:         *template,
-			ID:               patch.ID,
+			Name:             key,
 		})
 	}
 	return lockedPatches, nil
