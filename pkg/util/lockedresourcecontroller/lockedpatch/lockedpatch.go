@@ -4,8 +4,8 @@ import (
 	"text/template"
 
 	"github.com/go-logr/logr"
-	utilsapi "github.com/redhat-cop/operator-utils/v2/api/v1alpha1"
-	utilstemplate "github.com/redhat-cop/operator-utils/v2/pkg/util/templates"
+	utilsapi "github.com/redhat-cop/operator-utils/api/v1alpha1"
+	utilstemplate "github.com/redhat-cop/operator-utils/pkg/util/templates"
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"

@@ -1,4 +1,4 @@
-module github.com/redhat-cop/operator-utils/v2
+module github.com/redhat-cop/operator-utils
 
 go 1.16
 

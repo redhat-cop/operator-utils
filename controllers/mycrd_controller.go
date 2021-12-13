@@ -21,9 +21,9 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
-	"github.com/redhat-cop/operator-utils/v2/api/v1alpha1"
-	operatorutilsv1alpha1 "github.com/redhat-cop/operator-utils/v2/api/v1alpha1"
-	"github.com/redhat-cop/operator-utils/v2/pkg/util"
+	"github.com/redhat-cop/operator-utils/api/v1alpha1"
+	operatorutilsv1alpha1 "github.com/redhat-cop/operator-utils/api/v1alpha1"
+	"github.com/redhat-cop/operator-utils/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
