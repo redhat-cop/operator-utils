@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 
-	operatorutilsv1alpha1 "github.com/redhat-cop/operator-utils/api/v1alpha1"
+	operatorutilsv1alpha1 "github.com/redhat-cop/operator-utils/v2/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

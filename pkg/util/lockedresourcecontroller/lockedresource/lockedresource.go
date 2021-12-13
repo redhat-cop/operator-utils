@@ -6,8 +6,8 @@ import (
 	"text/template"
 
 	"github.com/go-logr/logr"
-	utilsapi "github.com/redhat-cop/operator-utils/api/v1alpha1"
-	utilstemplates "github.com/redhat-cop/operator-utils/pkg/util/templates"
+	utilsapi "github.com/redhat-cop/operator-utils/v2/api/v1alpha1"
+	utilstemplates "github.com/redhat-cop/operator-utils/v2/pkg/util/templates"
 	"github.com/scylladb/go-set/strset"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"

@@ -9,10 +9,10 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/redhat-cop/operator-utils/pkg/util"
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
-	"github.com/redhat-cop/operator-utils/pkg/util/dynamicclient"
-	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/apis"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/dynamicclient"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/lockedresourcecontroller/lockedresource"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

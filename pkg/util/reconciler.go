@@ -24,8 +24,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/redhat-cop/operator-utils/pkg/util/apis"
-	"github.com/redhat-cop/operator-utils/pkg/util/templates"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/apis"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/templates"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

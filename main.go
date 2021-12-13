@@ -27,10 +27,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	operatorutilsv1alpha1 "github.com/redhat-cop/operator-utils/api/v1alpha1"
-	"github.com/redhat-cop/operator-utils/controllers"
-	"github.com/redhat-cop/operator-utils/pkg/util"
-	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller"
+	operatorutilsv1alpha1 "github.com/redhat-cop/operator-utils/v2/api/v1alpha1"
+	"github.com/redhat-cop/operator-utils/v2/controllers"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/lockedresourcecontroller"
 	// +kubebuilder:scaffold:imports
 )
 

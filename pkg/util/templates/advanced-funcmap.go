@@ -29,7 +29,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
-	"github.com/redhat-cop/operator-utils/pkg/util/dynamicclient"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/dynamicclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

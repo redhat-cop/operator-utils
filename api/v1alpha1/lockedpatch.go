@@ -6,9 +6,9 @@ import (
 	"errors"
 	"text/template"
 
-	"github.com/redhat-cop/operator-utils/pkg/util/discoveryclient"
-	"github.com/redhat-cop/operator-utils/pkg/util/dynamicclient"
-	utiltemplates "github.com/redhat-cop/operator-utils/pkg/util/templates"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/discoveryclient"
+	"github.com/redhat-cop/operator-utils/v2/pkg/util/dynamicclient"
+	utiltemplates "github.com/redhat-cop/operator-utils/v2/pkg/util/templates"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
