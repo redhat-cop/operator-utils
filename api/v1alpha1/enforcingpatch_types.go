@@ -31,7 +31,7 @@ type EnforcingPatchSpec struct {
 
 	// Patches is a list of pacthes that should be encforced at runtime.
 	// +kubebuilder:validation:Optional
-	Patches map[string]Patch `json:"patches,omitempty"`
+	Patches map[string]PatchSpec `json:"patches,omitempty"`
 }
 
 // EnforcingPatchStatus defines the observed state of EnforcingPatch

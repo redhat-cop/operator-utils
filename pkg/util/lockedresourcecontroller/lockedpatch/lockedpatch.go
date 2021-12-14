@@ -49,7 +49,7 @@ func GetLockedPatchesFromLockedPatcheSet(lockedPatchSet *strset.Set, lockedPatch
 }
 
 //GetLockedPatches returns a slice of LockedPatches from a slice of apis.Patches
-func GetLockedPatches(patches map[string]utilsapi.Patch, config *rest.Config, logger logr.Logger) ([]LockedPatch, error) {
+func GetLockedPatches(patches map[string]utilsapi.PatchSpec, config *rest.Config, logger logr.Logger) ([]LockedPatch, error) {
 	lockedPatches := []LockedPatch{}
 	for key, patch := range patches {
 		template, err := template.New(patch.PatchTemplate).Funcs(utilstemplate.AdvancedTemplateFuncMap(config, logger)).Parse(patch.PatchTemplate)
