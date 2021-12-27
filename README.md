@@ -37,7 +37,7 @@ The following idempotent methods are provided (and their corresponding array ver
 
 1. createIfNotExists
 2. createOrUpdate
-3. deleteIfExits
+3. deleteIfExists
 
 Also there are utility methods to manage finalizers, test ownership and process templates of resources.
 
@@ -118,7 +118,7 @@ At this point your controller is able to leverage the utility methods of this li
 3. [managing status and error conditions](#managing-status-and-error-conditions)
 4. [managing CR finalization](#managing-cr-finalization)
 5. high-level object manipulation functions such as:
-   - createOrUpdate, createIfNotExists, DeleteIfExists
+   - createOrUpdate, createIfNotExists, deleteIfExists
    - same functions on an array of objects
    - go template processing of objects
 
