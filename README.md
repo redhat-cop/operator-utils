@@ -458,8 +458,10 @@ Patches
 ```shell
 oc new-project patch-test
 oc create sa test -n patch-test
-oc adm policy add-cluster-role-to-user cluster-reader -z default -n patch-test
+oc adm policy add-cluster-role-to-user cluster-admin -z default -n patch-test
 oc apply -f ./test/enforcing-patch.yaml -n patch-test
+oc apply -f ./test/enforcing-patch-multiple.yaml -n patch-test
+oc apply -f ./test/enforcing-patch-multiple-cluster-level.yaml -n patch-test
 ```
 
 ## Building/Pushing the operator image

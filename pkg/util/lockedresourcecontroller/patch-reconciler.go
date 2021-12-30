@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -79,7 +81,7 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 
 	err = controller.Watch(&source.Kind{Type: obj}, &handler.EnqueueRequestForObject{}, &targetReferenceModifiedPredicate{
 		TargetObjectReference: patch.TargetObjectRef,
-		log:                   ctrl.Log.WithName(controllername).WithName(apis.GetKeyShort(parentObject)).WithName(patch.GetKey()).WithName("target-watcher"),
+		log:                   reconciler.log.WithName("target-watcher"),
 		restConfig:            mgr.GetConfig(),
 	})
 	if err != nil {
@@ -97,9 +99,12 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 			target:          &patch.TargetObjectRef,
 			discoveryClient: discoveryClient,
 			restConfig:      mgr.GetConfig(),
-			log:             reconciler.log.WithName(sourceRef.APIVersion + "/" + sourceRef.Kind + "/" + sourceRef.Namespace + "/" + sourceRef.Name),
+			log:             reconciler.log.WithName(sourceRef.APIVersion + "/" + sourceRef.Kind + "/" + sourceRef.Namespace + "/" + sourceRef.Name).WithName("source-event-handler"),
 		}, &sourceReferenceModifiedPredicate{
-			ctrl.Log.WithName(controllername).WithName(apis.GetKeyShort(parentObject)).WithName(patch.GetKey()).WithName("source-watcher"),
+			log:        reconciler.log.WithName(sourceRef.APIVersion + "/" + sourceRef.Kind + "/" + sourceRef.Namespace + "/" + sourceRef.Name).WithName("source-event-filter"),
+			source:     &sourceRef,
+			target:     &patch.TargetObjectRef,
+			restConfig: mgr.GetConfig(),
 		})
 		if err != nil {
 			return &LockedPatchReconciler{}, err
@@ -113,8 +118,6 @@ func sourceObjectRefToRuntimeType(objref *utilsapi.SourceObjectReference) client
 	obj := &unstructured.Unstructured{}
 	obj.SetKind(objref.Kind)
 	obj.SetAPIVersion(objref.APIVersion)
-	// obj.SetNamespace(objref.Namespace)
-	// obj.SetName(objref.Name)
 	return obj
 }
 
@@ -122,8 +125,6 @@ func targetObjectRefToRuntimeType(objref *utilsapi.TargetObjectReference) client
 	obj := &unstructured.Unstructured{}
 	obj.SetKind(objref.Kind)
 	obj.SetAPIVersion(objref.APIVersion)
-	// obj.SetNamespace(objref.Namespace)
-	// obj.SetName(objref.Name)
 	return obj
 }
 
@@ -281,19 +282,55 @@ func (e *enqueueRequestForPatch) Generic(evt event.GenericEvent, q workqueue.Rat
 }
 
 type sourceReferenceModifiedPredicate struct {
-	log logr.Logger
+	source     *utilsapi.SourceObjectReference
+	target     *utilsapi.TargetObjectReference
+	restConfig *rest.Config
+	log        logr.Logger
 }
 
 // Update implements default UpdateEvent filter for validating resource version change
 func (p *sourceReferenceModifiedPredicate) Update(e event.UpdateEvent) bool {
 	//TODO can be optimized by calculating whether we are selecting multiple objects
 	p.log.V(1).Info("filter update", "for", e.ObjectNew)
-	return !compareObjectsWithoutIgnoredFields(e.ObjectNew, e.ObjectOld)
+	ctx := context.TODO()
+	ctrl.LoggerInto(ctx, p.log)
+	return p.isRelevant(e.ObjectNew) && !compareSourceObjects(ctx, p.source, e.ObjectNew, e.ObjectOld)
 }
 
 func (p *sourceReferenceModifiedPredicate) Create(e event.CreateEvent) bool {
 	//TODO can be optimized by calculating whether we are selecting multiple objects
 	p.log.V(1).Info("filter create", "for", e.Object)
+	return p.isRelevant(e.Object)
+}
+
+func (p *sourceReferenceModifiedPredicate) isRelevant(obj client.Object) bool {
+	// we need to aggressively filter events.
+	// if name and namespaces are not templates, we can check the object
+	if !strings.Contains(p.source.Name, "{{") && !strings.Contains(p.source.Namespace, "{{") {
+		return obj.GetName() == p.source.Name && obj.GetNamespace() == p.source.Namespace
+	}
+	// if target is not selecting multiple instances then we can resolve the templates and test the object
+	ctx := context.TODO()
+	ctrl.LoggerInto(ctx, p.log)
+	ctx = context.WithValue(ctx, "restConfig", p.restConfig)
+	multiple, _, err := p.target.IsSelectingMultipleInstances(ctx)
+	if err != nil {
+		p.log.Error(err, "unable to determine if target object selects multiple instances")
+		return false
+	}
+	if !multiple {
+		tobj, err := p.target.GetReferencedObject(ctx)
+		if err != nil {
+			p.log.Error(err, "unable to get target referenced obect")
+			return false
+		}
+		name, namespace, err := p.source.GetNameAndNamespace(ctx, tobj)
+		if err != nil {
+			p.log.Error(err, "unable to get source name and namespace from target")
+			return false
+		}
+		return name == obj.GetName() && namespace == obj.GetNamespace()
+	}
 	return true
 }
 
@@ -370,11 +407,41 @@ func compareObjectsWithoutIgnoredFields(changedObjSrc runtime.Object, originalOb
 	return (string(changedObjJSON) == string(originalObjJSON))
 }
 
+func compareSourceObjects(ctx context.Context, sourceObjectReference *utilsapi.SourceObjectReference, changedObjSrc runtime.Object, originalObjSrc runtime.Object) bool {
+	if sourceObjectReference.FieldPath != "" {
+		mlog := log.FromContext(ctx)
+		changedUnstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(changedObjSrc)
+		if err != nil {
+			mlog.Error(err, "unable to convert runtime object to unstructured", "runtime object", changedObjSrc)
+			return false
+		}
+		originalUnstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(originalObjSrc)
+		if err != nil {
+			mlog.Error(err, "unable to convert runtime object to unstructured", "runtime object", originalObjSrc)
+			return false
+		}
+		changedObjSubMap, err := getSubMapFromObject(ctx, &unstructured.Unstructured{Object: changedUnstructuredObj}, sourceObjectReference.FieldPath)
+		if err != nil {
+			mlog.Error(err, "unable to convert get submap from unstructured", "fieldPath", sourceObjectReference.FieldPath, "unstructured", changedUnstructuredObj)
+			return false
+		}
+		originalObjSubMap, err := getSubMapFromObject(ctx, &unstructured.Unstructured{Object: originalUnstructuredObj}, sourceObjectReference.FieldPath)
+		if err != nil {
+			mlog.Error(err, "unable to convert get submap from unstructured", "fieldPath", sourceObjectReference.FieldPath, "unstructured", originalUnstructuredObj)
+			return false
+		}
+		return !reflect.DeepEqual(changedObjSubMap, originalObjSubMap)
+	} else {
+		return compareObjectsWithoutIgnoredFields(changedObjSrc, originalObjSrc)
+	}
+}
+
 //Reconcile method
 func (lpr *LockedPatchReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	//gather all needed the objects
 	lpr.log.V(1).Info("reconcile", "for", request)
 	ctx = context.WithValue(ctx, "restConfig", lpr.GetRestConfig())
+	ctx = log.IntoContext(ctx, lpr.log)
 	targetObj, err := lpr.patch.TargetObjectRef.GetReferencedObjectWithName(ctx, request.NamespacedName)
 	if err != nil {
 		lpr.log.Error(err, "unable to retrieve", "target", lpr.patch.TargetObjectRef)
@@ -388,7 +455,7 @@ func (lpr *LockedPatchReconciler) Reconcile(ctx context.Context, request reconci
 			lpr.log.Error(err, "unable to retrieve", "source", sourceObj)
 			return lpr.manageError(targetObj, err)
 		}
-		sourceMap, err := lpr.getSubMapFromObject(sourceObj, lpr.patch.SourceObjectRefs[i].FieldPath)
+		sourceMap, err := getSubMapFromObject(ctx, sourceObj, lpr.patch.SourceObjectRefs[i].FieldPath)
 		if err != nil {
 			lpr.log.Error(err, "unable to retrieve", "field", lpr.patch.SourceObjectRefs[i].FieldPath, "from object", sourceObj)
 			return lpr.manageError(targetObj, err)
@@ -428,7 +495,8 @@ func (lpr *LockedPatchReconciler) GetKey() string {
 	return lpr.patch.GetKey()
 }
 
-func (lpr *LockedPatchReconciler) getSubMapFromObject(obj *unstructured.Unstructured, fieldPath string) (interface{}, error) {
+func getSubMapFromObject(ctx context.Context, obj *unstructured.Unstructured, fieldPath string) (interface{}, error) {
+	mlog := log.FromContext(ctx)
 	if fieldPath == "" {
 		return obj.UnstructuredContent(), nil
 	}
@@ -436,13 +504,13 @@ func (lpr *LockedPatchReconciler) getSubMapFromObject(obj *unstructured.Unstruct
 	jp := jsonpath.New("fieldPath:" + fieldPath)
 	err := jp.Parse("{" + fieldPath + "}")
 	if err != nil {
-		lpr.log.Error(err, "unable to parse ", "fieldPath", fieldPath)
+		mlog.Error(err, "unable to parse ", "fieldPath", fieldPath)
 		return nil, err
 	}
 
 	values, err := jp.FindResults(obj.UnstructuredContent())
 	if err != nil {
-		lpr.log.Error(err, "unable to apply ", "jsonpath", jp, " to obj ", obj.UnstructuredContent())
+		mlog.Error(err, "unable to apply ", "jsonpath", jp, " to obj ", obj.UnstructuredContent())
 		return nil, err
 	}
 

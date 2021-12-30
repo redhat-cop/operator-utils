@@ -1,0 +1,23 @@
+#test multiple instances namespaced
+apiVersion: operator-utils.example.io/v1alpha1
+kind: EnforcingPatch
+metadata:
+  name: test-patch-multiple
+spec:
+  patches:
+  - name: ciao1
+    targetObjectRef:
+      apiVersion: v1
+      kind: ServiceAccount
+      name: deployer
+    patchTemplate: |
+      metadata:
+        annotations:
+          {{ (index . 0).metadata.uid }}: {{ (index . 1) }}
+    patchType: application/strategic-merge-patch+json
+    sourceObjectRefs:
+    - apiVersion: v1
+      kind: ServiceAccount
+      name: default
+      namespace: "{{ .metadata.namespace }}"
+      fieldPath: $.metadata.uid   
