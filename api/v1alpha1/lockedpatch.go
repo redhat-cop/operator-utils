@@ -22,7 +22,7 @@ import (
 
 // Patch describes a patch to be enforced at runtime
 // +k8s:openapi-gen=true
-type Patch struct {
+type PatchSpec struct {
 	//Name represents a unique name for this patch, it has no particular effect, except for internal bookeeping
 
 	// SourceObjectRefs is an arrays of refereces to source objects that will be used as input for the template processing. These refernces must resolve to single instance. The resolution rule is as follows (+ present, - absent):

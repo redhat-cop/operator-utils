@@ -2,8 +2,6 @@ package v1alpha1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-// +patchMergeKey=type
-// +patchStrategy=merge
 // +listType=map
 // +listMapKey=type
 type Conditions []metav1.Condition
@@ -16,8 +14,6 @@ type EnforcingReconcileStatus struct {
 
 	// ReconcileStatus this is the general status of the main reconciler
 	// +kubebuilder:validation:Optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
