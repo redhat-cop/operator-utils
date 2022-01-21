@@ -113,7 +113,7 @@ func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(context conte
 			er.log.Error(err, "unable to delete unmanaged", "resources", leftDifference)
 			return err
 		}
-		err := lockedResourceManager.Restart(lockedResources, lockedPatches, false, config)
+		err := lockedResourceManager.Restart(context, lockedResources, lockedPatches, false, config)
 		if err != nil {
 			er.log.Error(err, "unable to restart", "manager", lockedResourceManager)
 			return err

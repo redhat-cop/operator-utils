@@ -119,7 +119,7 @@ func (lrm *LockedResourceManager) IsStarted() bool {
 }
 
 // Start starts the LockedResourceManager
-func (lrm *LockedResourceManager) Start(config *rest.Config) error {
+func (lrm *LockedResourceManager) Start(ctx context.Context, config *rest.Config) error {
 	if lrm.stoppableManager != nil && lrm.stoppableManager.IsStarted() {
 		return nil
 	}
@@ -165,7 +165,7 @@ func (lrm *LockedResourceManager) Start(config *rest.Config) error {
 	}
 	lrm.patchReconcilers = patchReconcilers
 
-	lrm.stoppableManager.Start()
+	lrm.stoppableManager.Start(ctx)
 	return nil
 }
 
@@ -210,7 +210,8 @@ func (lrm *LockedResourceManager) scanNamespaces() []string {
 
 // Restart restarts the manager with a different set of resources
 // if deleteResources is set, resources that were enforced are deleted.
-func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResource, patches []lockedpatch.LockedPatch, deleteResources bool, config *rest.Config) error {
+func (lrm *LockedResourceManager) Restart(ctx context.Context, resources []lockedresource.LockedResource,
+	patches []lockedpatch.LockedPatch, deleteResources bool, config *rest.Config) error {
 	if lrm.IsStarted() {
 		err := lrm.Stop(deleteResources)
 		if err != nil {
@@ -228,7 +229,7 @@ func (lrm *LockedResourceManager) Restart(resources []lockedresource.LockedResou
 		lrm.log.Error(err, "unable to set", "patches", patches)
 		return err
 	}
-	return lrm.Start(config)
+	return lrm.Start(ctx, config)
 }
 
 // IsSameResources checks whether the currently enforced resources are the same as the ones passed as parameters
