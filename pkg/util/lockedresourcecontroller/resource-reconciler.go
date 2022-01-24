@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/nsf/jsondiff"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	"github.com/redhat-cop/operator-utils/pkg/util/dynamicclient"
@@ -138,10 +139,14 @@ func (lor *LockedResourceReconciler) Reconcile(ctx context.Context, request reco
 		return lor.manageError(instance, err)
 	}
 	if !equal {
-		lor.log.V(1).Info("determined that resources are NOT equal")
+		lor.log.V(1).Info("determined that resources are NOT equal", "differences", lor.logDiff(instance))
 		patch, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
 		if err != nil {
 			lor.log.Error(err, "unable to filter out ", "excluded paths", lor.ExcludePaths, "from object", lor.Resource)
+			return lor.manageError(instance, err)
+		}
+		if err != nil {
+			lor.log.Error(err, "unable to marshall ", "object", patch)
 			return lor.manageError(instance, err)
 		}
 		patchBytes, err := json.Marshal(patch)
@@ -170,6 +175,31 @@ func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured
 		return false, err
 	}
 	return reflect.DeepEqual(left, right), nil
+}
+
+func (lor *LockedResourceReconciler) logDiff(instance *unstructured.Unstructured) string {
+	fi, err := lockedresource.FilterOutPaths(instance, lor.ExcludePaths)
+	if err != nil {
+		return "unable to log differences"
+	}
+	fr, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
+	if err != nil {
+		return "unable to log differences"
+	}
+	fib, err := json.Marshal(fi)
+	if err != nil {
+		return "unable to log differences"
+	}
+	frb, err := json.Marshal(fr)
+	if err != nil {
+		return "unable to log differences"
+	}
+
+	opts := jsondiff.DefaultJSONOptions()
+	opts.SkipMatches = true
+	opts.Indent = "\t"
+	_, diff := jsondiff.Compare(fib, frb, &opts)
+	return diff
 }
 
 type resourceModifiedPredicate struct {
