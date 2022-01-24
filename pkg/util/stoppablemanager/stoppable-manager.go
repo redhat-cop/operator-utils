@@ -30,12 +30,12 @@ func (sm *StoppableManager) Stop() {
 }
 
 //Start starts the manager. Restarting a starated manager is a noop that will be logged.
-func (sm *StoppableManager) Start() {
+func (sm *StoppableManager) Start(parentCtx context.Context) {
 	if sm.started {
 		log.Error(errors.New("invalid argument"), "start called on a started channel")
 		return
 	}
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(parentCtx)
 	sm.cancelFunction = cancel
 	go func() {
 		err := sm.Manager.Start(ctx)
