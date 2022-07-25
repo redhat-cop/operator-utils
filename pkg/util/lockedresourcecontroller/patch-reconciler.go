@@ -452,7 +452,7 @@ func (lpr *LockedPatchReconciler) Reconcile(ctx context.Context, request reconci
 	for i := range lpr.patch.SourceObjectRefs {
 		sourceObj, err := lpr.patch.SourceObjectRefs[i].GetReferencedObject(ctx, targetObj)
 		if err != nil {
-			lpr.log.Error(err, "unable to retrieve", "source", sourceObj)
+			lpr.log.Error(err, "unable to retrieve", "sourceObjectRef", lpr.patch.SourceObjectRefs[i])
 			return lpr.manageError(targetObj, err)
 		}
 		sourceMap, err := getSubMapFromObject(ctx, sourceObj, lpr.patch.SourceObjectRefs[i].FieldPath)
