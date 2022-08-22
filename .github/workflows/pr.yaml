@@ -13,3 +13,4 @@ jobs:
       RUN_UNIT_TESTS: true
       RUN_INTEGRATION_TESTS: false
       RUN_HELMCHART_TEST: false
+      GO_VERSION: ~1.17
