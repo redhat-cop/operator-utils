@@ -7,7 +7,7 @@
 
 This library layers on top of the Operator SDK and with the objective of helping writing better and more consistent operators.
 
-*NOTICE* versions of this library up to `v0.3.7` are compatible with [operator-sdk](https://github.com/operator-framework/operator-sdk) `0.x`, starting from version v0.4.0 this library will be compatible only with [operator-sdk](https://github.com/operator-framework/operator-sdk) 1.x.
+*NOTICE* Versions of this library up to `v0.3.7` are compatible with [operator-sdk](https://github.com/operator-framework/operator-sdk) `0.x`, starting from version v0.4.0 this library will be compatible only with [operator-sdk](https://github.com/operator-framework/operator-sdk) 1.x.
 
 ## Scope of this library
 
