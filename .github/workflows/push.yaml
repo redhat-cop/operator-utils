@@ -152,6 +152,51 @@ jobs:
           GOARCH: ${{ steps.setup-build-step.outputs.platform_arch }}
         run: make
 
+  test-operator:
+    runs-on: ubuntu-latest
+    name: test-operator
+    needs: ["setup"]
+    env:
+      REPOSITORY_NAME: ${{ needs.setup.outputs.repository_name }}
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ inputs.GO_VERSION }}
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Go Build Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ needs.setup.outputs.go_build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+      - name: Go Mod Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ needs.setup.outputs.go_mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      - name: Download Binaries
+        uses: actions/download-artifact@v2
+        with:
+          name: support-binaries
+          path: ${{ needs.setup.outputs.bin_dir }}
+
+      - name: Prepare Build Step
+        id: setup-build-step
+        run: |
+          # Setup Path
+          echo "${{ needs.setup.outputs.bin_dir }}" >> $GITHUB_PATH
+          # Make Binaries Executable
+          chmod +x ${{ needs.setup.outputs.bin_dir }}/*
+
+      - name: Run unit tests
+        shell: bash
+        run: make test
+
   github-release:
     runs-on: ubuntu-latest
     name: github-release
