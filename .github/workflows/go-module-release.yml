@@ -1,0 +1,386 @@
+name: go-module-release
+on:
+  workflow_call:
+    inputs:
+      OPERATOR_SDK_VERSION:
+        description: "Version of Operator SDK Binary for installation"
+        default: "v1.9.0"
+        required: false
+        type: string
+      BUILD_PLATFORMS:
+        description: 'Comma separated list of targets for builds e.g. "linux/amd64,linux/arm64,linux/ppc64le,linux/s390x"'
+        default: "linux/amd64,linux/arm64,linux/ppc64le,linux/s390x"
+        required: false
+        type: string
+      GO_VERSION:
+        description: "Go version to use"
+        default: "~1.16"
+        required: false
+        type: string
+      RUN_UNIT_TESTS:
+        description: "Run unit tests will run the test target in the Makefile"
+        default: false
+        required: false
+        type: boolean
+    secrets:
+      COMMUNITY_OPERATOR_PAT:
+        description: "Github PAT Token for Community Operator Fork Git Operations"
+        required: true
+      REGISTRY_USERNAME:
+        description: "Username for Registry"
+        required: true
+      REGISTRY_PASSWORD:
+        description: "Password for Registry"
+        required: true
+
+env:
+  DEFAULT_BUNDLE_VERSION: "0.0.1"
+  DEFAULT_BUNDLE_CHANNEL: "alpha"
+  DEFAULT_OPERATOR_VERSION: "latest"
+  DEFAULT_HELMCHART_VERSION: "v0.0.1"
+  HELM_REPO_DIR: "./tmp/gh-pages"
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    name: setup
+    steps:
+      - name: Check if registry secrets are set
+        run: |
+          if [ "${{ secrets.REGISTRY_USERNAME }}" == "" ] || [ "${{ secrets.REGISTRY_PASSWORD }}" == "" ]; then
+            echo "Required Secrets 'REGISTRY_USERNAME' or 'REGISTRY_PASSWORD' are not set!"
+            exit 1
+          fi
+
+      - name: Check if community operators PAT secret is set
+        run: |
+          if [ "${{ secrets.COMMUNITY_OPERATOR_PAT }}" == "" ]; then
+            echo "Required Secret 'COMMUNITY_OPERATOR_PAT' is not set"
+            exit 1
+          fi
+
+      - name: Setting Workflow Variables
+        id: set-variables
+        env:
+          BUILD_PLATFORMS: ${{ inputs.BUILD_PLATFORMS }}
+        run: |
+          echo "::set-output name=repository_name::$(basename $GITHUB_REPOSITORY)"
+          echo "::set-output name=bin_dir::$(pwd)/bin"
+
+          # Create Distribution Matrix
+          echo "::set-output name=dist_matrix::$(echo -n "${{ env.BUILD_PLATFORMS }}" | jq -csR '. | split(",")')"
+          # Create Image Tags
+          echo "::set-output name=image_platform_tags::$(echo $BUILD_PLATFORMS | sed  -e 's/,/ /g' -e 's/\//-/g')"
+
+      - name: Setting Image Variables
+        id: set-variables-image
+        run: |
+          if [ "${{ inputs.OPERATOR_IMAGE_REPOSITORY }}" == "" ]; then
+            echo "::set-output name=operator_image_repository_name::${{ steps.set-variables.outputs.repository_name }}"
+            echo "::set-output name=operator_image_registry::quay.io/$(dirname $GITHUB_REPOSITORY)"
+          else
+            OPERATOR_IMAGE_REPOSITORY="${{ inputs.OPERATOR_IMAGE_REPOSITORY }}"
+            echo "::set-output name=operator_image_repository_name::${OPERATOR_IMAGE_REPOSITORY##*/}"
+            echo "::set-output name=operator_image_registry::${OPERATOR_IMAGE_REPOSITORY%/*}"
+          fi
+
+          if [ "${{ inputs.BUNDLE_IMAGE_REPOSITORY }}" == "" ]; then
+            echo "::set-output name=bundle_image_repository_name::${{ steps.set-variables.outputs.repository_name }}-bundle"
+            echo "::set-output name=bundle_image_registry::quay.io/$(dirname $GITHUB_REPOSITORY)"
+
+          else
+            BUNDLE_IMAGE_REPOSITORY="${{ inputs.BUNDLE_IMAGE_REPOSITORY }}"
+            echo "::set-output name=bundle_image_repository_name::${BUNDLE_IMAGE_REPOSITORY##*/}"
+            echo "::set-output name=bundle_image_registry::${BUNDLE_IMAGE_REPOSITORY%/*}"
+          fi
+
+          # Set versions based on presence of tag
+          if [[ "${{ github.ref }}" =~ ^refs/tags/ ]]; then
+            TAG="${GITHUB_REF/refs\/tags\//}"
+            echo "::set-output name=tag_event::true"
+            echo "::set-output name=operator_version::$TAG"
+            echo "::set-output name=bundle_version::${TAG:1}"
+            echo "::set-output name=helmchart_version::$TAG"
+          else
+            echo "::set-output name=tag_event::false"
+            echo "::set-output name=operator_version::$DEFAULT_OPERATOR_VERSION"
+            echo "::set-output name=bundle_version::$DEFAULT_BUNDLE_VERSION"
+            echo "::set-output name=helmchart_version::$DEFAULT_HELMCHART_VERSION"
+          fi
+
+      - name: Verify Semver Bundle Version
+        uses: rubenesp87/semver-validation-action@0.0.6
+        with:
+          version: "${{ steps.set-variables-image.outputs.bundle_version }}"
+
+      - name: Verify Semver Helm Chart Version
+        uses: rubenesp87/semver-validation-action@0.0.6
+        with:
+          version: "${{ steps.set-variables-image.outputs.helmchart_version }}"
+
+      - name: Build Go Cache Paths
+        id: go-cache-paths
+        run: |
+          echo "::set-output name=go-build::$(go env GOCACHE)"
+          echo "::set-output name=go-mod::$(go env GOMODCACHE)"
+
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ inputs.GO_VERSION }}
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Go Build Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+      - name: Go Mod Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.go-cache-paths.outputs.go-mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      - name: Go Dependencies
+        run: go mod download
+
+      - name: Download Binaries
+        env:
+          OPERATOR_SDK_VERSION: ${{ inputs.OPERATOR_SDK_VERSION }}
+        run: |
+          # Create Binary Directory
+          mkdir -p ${{ steps.set-variables.outputs.bin_dir }}
+
+          # Operator SDK
+          curl -L -o ${{ steps.set-variables.outputs.bin_dir }}/operator-sdk https://github.com/operator-framework/operator-sdk/releases/download/${{ env.OPERATOR_SDK_VERSION }}/operator-sdk_linux_amd64
+
+          # Controller-gen
+          make controller-gen
+
+          # Kustomize
+          make kustomize
+
+      - name: Upload Support Binaries
+        uses: actions/upload-artifact@v2
+        with:
+          name: support-binaries
+          path: ${{ steps.set-variables.outputs.bin_dir }}
+    outputs:
+      repository_name: ${{ steps.set-variables.outputs.repository_name }}
+      bin_dir: ${{ steps.set-variables.outputs.bin_dir }}
+      operator_image_repository_name: ${{ steps.set-variables-image.outputs.operator_image_repository_name}}
+      operator_image_registry: ${{ steps.set-variables-image.outputs.operator_image_registry }}
+      bundle_image_repository_name: ${{ steps.set-variables-image.outputs.bundle_image_repository_name }}
+      bundle_image_registry: ${{ steps.set-variables-image.outputs.bundle_image_registry }}
+      go_build: ${{ steps.go-cache-paths.outputs.go-build }}
+      go_mod: ${{ steps.go-cache-paths.outputs.go-mod }}
+      operator_version: ${{ steps.set-variables-image.outputs.operator_version }}
+      bundle_version: ${{ steps.set-variables-image.outputs.bundle_version }}
+      helmchart_version: ${{ steps.set-variables-image.outputs.helmchart_version }}
+      tag_event: ${{ steps.set-variables-image.outputs.tag_event }}
+      dist_matrix: ${{ steps.set-variables.outputs.dist_matrix }}
+      image_platform_tags: ${{ steps.set-variables.outputs.image_platform_tags }}
+
+  build-operator:
+    runs-on: ubuntu-latest
+    name: build-operator
+    needs: ["setup", "test-operator"]
+    strategy:
+      matrix:
+        platform: ${{ fromJson(needs.setup.outputs.dist_matrix) }}
+    env:
+      REPOSITORY_NAME: ${{ needs.setup.outputs.repository_name }}
+      OPERATOR_VERSION: ${{ needs.setup.outputs.operator_version }}
+      BUNDLE_VERSION: ${{ needs.setup.outputs.bundle_version }}
+      OPERATOR_IMAGE_REPOSITORY: "${{ needs.setup.outputs.operator_image_registry }}/${{ needs.setup.outputs.operator_image_repository_name }}"
+      OPERATOR_IMAGE_REGISTRY: ${{ needs.setup.outputs.operator_image_registry }}
+      BUNDLE_IMAGE_REPOSITORY: "${{ needs.setup.outputs.bundle_image_registry }}/${{ needs.setup.outputs.bundle_image_repository_name }}"
+      BUNDLE_IMAGE_REGISTRY: ${{ needs.setup.outputs.bundle_image_registry }}
+
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ inputs.GO_VERSION }}
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Go Build Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ needs.setup.outputs.go_build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+      - name: Go Mod Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ needs.setup.outputs.go_mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      - name: Download Support Binaries
+        uses: actions/download-artifact@v2
+        with:
+          name: support-binaries
+          path: ${{ needs.setup.outputs.bin_dir }}
+
+      - name: Prepare Build Step
+        id: setup-build-step
+        run: |
+          # Setup Path
+          echo "${{ needs.setup.outputs.bin_dir }}" >> $GITHUB_PATH
+
+          # Make Binaries Executable
+          chmod +x ${{ needs.setup.outputs.bin_dir }}/*
+
+          # Configure Platform Variables
+          echo "::set-output name=platform_os::$(echo ${{ matrix.platform }} |  cut -d/ -f1)"
+          echo "::set-output name=platform_arch::$(echo ${{ matrix.platform }} |  cut -d/ -f2)"
+
+      - name: Download Dependencies
+        shell: bash
+        run: |
+          make generate
+          make fmt
+          make vet
+
+      - name: build code
+        shell: bash
+        env:
+          VERSION: latest
+          GOOS: ${{ steps.setup-build-step.outputs.platform_os }}
+          GOARCH: ${{ steps.setup-build-step.outputs.platform_arch }}
+        run: make
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          buildkitd-flags: --debug
+      - name: Login to Operator Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ env.OPERATOR_IMAGE_REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: "Build Operator Image"
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: "./ci.Dockerfile"
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: "${{ env.OPERATOR_IMAGE_REPOSITORY }}:latest-${{ steps.setup-build-step.outputs.platform_os }}-${{ steps.setup-build-step.outputs.platform_arch }},${{ env.OPERATOR_IMAGE_REPOSITORY }}:${{ env.OPERATOR_VERSION }}-${{ steps.setup-build-step.outputs.platform_os }}-${{ steps.setup-build-step.outputs.platform_arch }}"
+
+      - name: Prepare Distribution Artifacts
+        shell: bash
+        run: |
+          # Create Distribution Directory
+          mkdir dist
+
+          # Move and Rename Manager Binary
+          mv bin/manager dist/${{ env.REPOSITORY_NAME }}-manager-${{ env.OPERATOR_VERSION }}-${{ steps.setup-build-step.outputs.platform_os }}-${{ steps.setup-build-step.outputs.platform_arch }}
+
+      - name: Upload Dist
+        uses: actions/upload-artifact@v2
+        with:
+          name: dist
+          path: dist
+
+  test-operator:
+    runs-on: ubuntu-latest
+    name: test-operator
+    if: ${{ inputs.RUN_UNIT_TESTS }}
+    needs: ["setup"]
+    env:
+      REPOSITORY_NAME: ${{ needs.setup.outputs.repository_name }}
+    steps:
+      - name: Set up Go 1.x
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ inputs.GO_VERSION }}
+
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Go Build Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ needs.setup.outputs.go_build }}
+          key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.sum') }}
+
+      - name: Go Mod Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ needs.setup.outputs.go_mod }}
+          key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
+
+      - name: Download Binaries
+        uses: actions/download-artifact@v2
+        with:
+          name: support-binaries
+          path: ${{ needs.setup.outputs.bin_dir }}
+
+      - name: Prepare Build Step
+        id: setup-build-step
+        run: |
+          # Setup Path
+          echo "${{ needs.setup.outputs.bin_dir }}" >> $GITHUB_PATH
+
+          # Make Binaries Executable
+          chmod +x ${{ needs.setup.outputs.bin_dir }}/*
+
+      - name: Run unit tests
+        shell: bash
+        if: ${{ inputs.RUN_UNIT_TESTS }}
+        run: make test
+
+      - name: Run integration tests
+        shell: bash
+        if: ${{ inputs.RUN_INTEGRATION_TESTS }}
+        run: make integration
+
+  github-release:
+    runs-on: ubuntu-latest
+    name: github-release
+    if: ${{ needs.setup.outputs.tag_event == 'true' }}
+    needs:
+      [
+        "setup",
+        "test-operator",
+        "build-operator",
+      ]
+    env:
+      OPERATOR_VERSION: ${{ needs.setup.outputs.operator_version }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Fetch Code
+        run: |
+          git fetch --prune --unshallow
+
+      - name: Download Dist Directory
+        uses: actions/download-artifact@v2
+        with:
+          name: dist
+          path: dist
+
+      - name: Create Checksums for Release Artifacts
+        run: for i in `ls dist/`; do sha256sum dist/$i | awk '{ print $1 }' > dist/$i.sum256; done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
