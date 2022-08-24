@@ -47,51 +47,15 @@ jobs:
           # Create Image Tags
           echo "::set-output name=image_platform_tags::$(echo $BUILD_PLATFORMS | sed  -e 's/,/ /g' -e 's/\//-/g')"
 
-      - name: Setting Image Variables
-        id: set-variables-image
-        run: |
-          if [ "${{ secrets.OPERATOR_IMAGE_REPOSITORY }}" == "" ]; then
-            echo "::set-output name=operator_image_repository_name::${{ steps.set-variables.outputs.repository_name }}"
-            echo "::set-output name=operator_image_registry::quay.io/$(dirname $GITHUB_REPOSITORY)"
-          else
-            OPERATOR_IMAGE_REPOSITORY="${{ secrets.OPERATOR_IMAGE_REPOSITORY }}"
-            echo "::set-output name=operator_image_repository_name::${OPERATOR_IMAGE_REPOSITORY##*/}"
-            echo "::set-output name=operator_image_registry::${OPERATOR_IMAGE_REPOSITORY%/*}"
-          fi
-
-          if [ "${{ secrets.BUNDLE_IMAGE_REPOSITORY }}" == "" ]; then
-            echo "::set-output name=bundle_image_repository_name::${{ steps.set-variables.outputs.repository_name }}-bundle"
-            echo "::set-output name=bundle_image_registry::quay.io/$(dirname $GITHUB_REPOSITORY)"
-
-          else
-            BUNDLE_IMAGE_REPOSITORY="${{ secrets.BUNDLE_IMAGE_REPOSITORY }}"
-            echo "::set-output name=bundle_image_repository_name::${BUNDLE_IMAGE_REPOSITORY##*/}"
-            echo "::set-output name=bundle_image_registry::${BUNDLE_IMAGE_REPOSITORY%/*}"
-          fi
-
           # Set versions based on presence of tag
           if [[ "${{ github.ref }}" =~ ^refs/tags/ ]]; then
             TAG="${GITHUB_REF/refs\/tags\//}"
             echo "::set-output name=tag_event::true"
             echo "::set-output name=operator_version::$TAG"
-            echo "::set-output name=bundle_version::${TAG:1}"
-            echo "::set-output name=helmchart_version::$TAG"
           else
             echo "::set-output name=tag_event::false"
             echo "::set-output name=operator_version::$DEFAULT_OPERATOR_VERSION"
-            echo "::set-output name=bundle_version::$DEFAULT_BUNDLE_VERSION"
-            echo "::set-output name=helmchart_version::$DEFAULT_HELMCHART_VERSION"
           fi
-
-      - name: Verify Semver Bundle Version
-        uses: rubenesp87/semver-validation-action@0.0.6
-        with:
-          version: "${{ steps.set-variables-image.outputs.bundle_version }}"
-
-      - name: Verify Semver Helm Chart Version
-        uses: rubenesp87/semver-validation-action@0.0.6
-        with:
-          version: "${{ steps.set-variables-image.outputs.helmchart_version }}"
 
       - name: Build Go Cache Paths
         id: go-cache-paths
@@ -147,16 +111,10 @@ jobs:
     outputs:
       repository_name: ${{ steps.set-variables.outputs.repository_name }}
       bin_dir: ${{ steps.set-variables.outputs.bin_dir }}
-      operator_image_repository_name: ${{ steps.set-variables-image.outputs.operator_image_repository_name}}
-      operator_image_registry: ${{ steps.set-variables-image.outputs.operator_image_registry }}
-      bundle_image_repository_name: ${{ steps.set-variables-image.outputs.bundle_image_repository_name }}
-      bundle_image_registry: ${{ steps.set-variables-image.outputs.bundle_image_registry }}
       go_build: ${{ steps.go-cache-paths.outputs.go-build }}
       go_mod: ${{ steps.go-cache-paths.outputs.go-mod }}
-      operator_version: ${{ steps.set-variables-image.outputs.operator_version }}
-      bundle_version: ${{ steps.set-variables-image.outputs.bundle_version }}
-      helmchart_version: ${{ steps.set-variables-image.outputs.helmchart_version }}
-      tag_event: ${{ steps.set-variables-image.outputs.tag_event }}
+      operator_version: ${{ steps.set-variables.outputs.operator_version }}
+      tag_event: ${{ steps.set-variables.outputs.tag_event }}
       dist_matrix: ${{ steps.set-variables.outputs.dist_matrix }}
       image_platform_tags: ${{ steps.set-variables.outputs.image_platform_tags }}
 
@@ -170,11 +128,6 @@ jobs:
     env:
       REPOSITORY_NAME: ${{ needs.setup.outputs.repository_name }}
       OPERATOR_VERSION: ${{ needs.setup.outputs.operator_version }}
-      BUNDLE_VERSION: ${{ needs.setup.outputs.bundle_version }}
-      OPERATOR_IMAGE_REPOSITORY: "${{ needs.setup.outputs.operator_image_registry }}/${{ needs.setup.outputs.operator_image_repository_name }}"
-      OPERATOR_IMAGE_REGISTRY: ${{ needs.setup.outputs.operator_image_registry }}
-      BUNDLE_IMAGE_REPOSITORY: "${{ needs.setup.outputs.bundle_image_registry }}/${{ needs.setup.outputs.bundle_image_repository_name }}"
-      BUNDLE_IMAGE_REGISTRY: ${{ needs.setup.outputs.bundle_image_registry }}
 
     steps:
       - name: Set up Go 1.x
@@ -230,38 +183,6 @@ jobs:
           GOOS: ${{ steps.setup-build-step.outputs.platform_os }}
           GOARCH: ${{ steps.setup-build-step.outputs.platform_arch }}
         run: make
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-        with:
-          buildkitd-flags: --debug
-
-      - name: "Build Operator Image"
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: "./ci.Dockerfile"
-          platforms: ${{ matrix.platform }}
-          push: false
-          tags: "${{ env.OPERATOR_IMAGE_REPOSITORY }}:latest-${{ steps.setup-build-step.outputs.platform_os }}-${{ steps.setup-build-step.outputs.platform_arch }},${{ env.OPERATOR_IMAGE_REPOSITORY }}:${{ env.OPERATOR_VERSION }}-${{ steps.setup-build-step.outputs.platform_os }}-${{ steps.setup-build-step.outputs.platform_arch }}"
-
-      - name: Prepare Distribution Artifacts
-        shell: bash
-        run: |
-          # Create Distribution Directory
-          mkdir dist
-
-          # Move and Rename Manager Binary
-          mv bin/manager dist/${{ env.REPOSITORY_NAME }}-manager-${{ env.OPERATOR_VERSION }}-${{ steps.setup-build-step.outputs.platform_os }}-${{ steps.setup-build-step.outputs.platform_arch }}
-
-      - name: Upload Dist
-        uses: actions/upload-artifact@v2
-        with:
-          name: dist
-          path: dist
 
   test-operator:
     runs-on: ubuntu-latest
