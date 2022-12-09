@@ -69,7 +69,7 @@ func (lrm *LockedResourceManager) GetResources() []lockedresource.LockedResource
 	return lrm.resources
 }
 
-//GetPatches returns the currently enforced patches
+// GetPatches returns the currently enforced patches
 func (lrm *LockedResourceManager) GetPatches() []lockedpatch.LockedPatch {
 	return lrm.patches
 }
@@ -296,7 +296,7 @@ func (lrm *LockedResourceManager) deleteResources(context context.Context) error
 	return nil
 }
 
-//GetResourceReconcilers return the currently active resource reconcilers
+// GetResourceReconcilers return the currently active resource reconcilers
 func (lrm *LockedResourceManager) GetResourceReconcilers() []*LockedResourceReconciler {
 	if lrm.IsStarted() {
 		return lrm.resourceReconcilers
@@ -364,7 +364,7 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 	return nil
 }
 
-//GetPatchReconcilers return the currently active patch reconcilers
+// GetPatchReconcilers return the currently active patch reconcilers
 func (lrm *LockedResourceManager) GetPatchReconcilers() []*LockedPatchReconciler {
 	if lrm.IsStarted() {
 		return lrm.patchReconcilers

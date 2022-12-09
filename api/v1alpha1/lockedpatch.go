@@ -248,7 +248,7 @@ func (t *TargetObjectReference) IsNamespaced(context context.Context) (bool, err
 	return apiresource.Namespaced, nil
 }
 
-//IsSelectingMultipleInstances is a helper function to determine whether this targetObjectReference selects one or multiple instance.
+// IsSelectingMultipleInstances is a helper function to determine whether this targetObjectReference selects one or multiple instance.
 func (t *TargetObjectReference) IsSelectingMultipleInstances(context context.Context) (multiple bool, namespacedSelection bool, err error) {
 	log := log.FromContext(context)
 	namespaced, err := t.IsNamespaced(context)
@@ -271,7 +271,7 @@ func (t *TargetObjectReference) IsSelectingMultipleInstances(context context.Con
 	}
 }
 
-//Selects returns whether the passed object is selected by the current target reference
+// Selects returns whether the passed object is selected by the current target reference
 // requires context with log and restConfig
 func (t *TargetObjectReference) Selects(context context.Context, obj client.Object) (bool, error) {
 	log := log.FromContext(context)
@@ -329,7 +329,7 @@ func (t *TargetObjectReference) Selects(context context.Context, obj client.Obje
 	}
 }
 
-//GetNameAndNamespace processes the templates for Name and Namespace of the sourceObjectReference
+// GetNameAndNamespace processes the templates for Name and Namespace of the sourceObjectReference
 // requires context with log and restConfig
 func (s *SourceObjectReference) GetNameAndNamespace(context context.Context, target *unstructured.Unstructured) (name string, namespace string, err error) {
 	log := log.FromContext(context)

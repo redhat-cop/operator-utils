@@ -19,7 +19,7 @@ func GetDiscoveryClient(context context.Context) (*discovery.DiscoveryClient, er
 	return discovery.NewDiscoveryClientForConfig(restConfig)
 }
 
-//IsAPIResourceAvailable checks of a give GroupVersionKind is available in the running apiserver
+// IsAPIResourceAvailable checks of a give GroupVersionKind is available in the running apiserver
 // needs context with restConfig and log
 func IsGVKDefined(context context.Context, GVK schema.GroupVersionKind) (bool, error) {
 	_, found, err := GetAPIResourceForGVK(context, GVK)
@@ -50,7 +50,7 @@ func GetAPIResourceForGVK(context context.Context, GVK schema.GroupVersionKind) 
 	return nil, false, nil
 }
 
-//IsGVKNamespaced checks whether the passed GVK os namespaced
+// IsGVKNamespaced checks whether the passed GVK os namespaced
 // needs context with restConfig and log
 func IsGVKNamespaced(context context.Context, GVK schema.GroupVersionKind) (bool, error) {
 	resource, found, err := GetAPIResourceForGVK(context, GVK)
@@ -60,13 +60,13 @@ func IsGVKNamespaced(context context.Context, GVK schema.GroupVersionKind) (bool
 	return resource.Namespaced, nil
 }
 
-//IsUnstructuredDefined checks whether the content of a unstructured is defined in the current cluster
+// IsUnstructuredDefined checks whether the content of a unstructured is defined in the current cluster
 // needs context with restConfig and log
 func IsUnstructuredDefined(context context.Context, obj *unstructured.Unstructured) (bool, error) {
 	return IsGVKDefined(context, obj.GroupVersionKind())
 }
 
-//IsUnstructuredDefined checks whether the content of a unstructured is defined in the current cluster
+// IsUnstructuredDefined checks whether the content of a unstructured is defined in the current cluster
 // needs context with restConfig and log
 func IsUnstructuredNamespaced(context context.Context, obj *unstructured.Unstructured) (bool, error) {
 	return IsGVKNamespaced(context, obj.GroupVersionKind())

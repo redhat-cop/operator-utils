@@ -17,7 +17,7 @@ type ConditionsAware interface {
 	SetConditions(conditions []metav1.Condition)
 }
 
-//AddOrReplaceCondition adds or replaces the passed condition in the passed array of conditions
+// AddOrReplaceCondition adds or replaces the passed condition in the passed array of conditions
 func AddOrReplaceCondition(c metav1.Condition, conditions []metav1.Condition) []metav1.Condition {
 	for i, condition := range conditions {
 		if c.Type == condition.Type {
@@ -29,7 +29,7 @@ func AddOrReplaceCondition(c metav1.Condition, conditions []metav1.Condition) []
 	return conditions
 }
 
-//GetCondition returns the condition with the given type, if it exists. If the condition does not exists it returns false.
+// GetCondition returns the condition with the given type, if it exists. If the condition does not exists it returns false.
 func GetCondition(conditionType string, conditions []metav1.Condition) (metav1.Condition, bool) {
 	for _, condition := range conditions {
 		if condition.Type == conditionType {
@@ -39,7 +39,7 @@ func GetCondition(conditionType string, conditions []metav1.Condition) (metav1.C
 	return metav1.Condition{}, false
 }
 
-//GetLastCondition retruns the last condition based on the condition timestamp. if no condition is present it return false.
+// GetLastCondition retruns the last condition based on the condition timestamp. if no condition is present it return false.
 func GetLastCondition(conditions []metav1.Condition) (metav1.Condition, bool) {
 	if len(conditions) == 0 {
 		return metav1.Condition{}, false

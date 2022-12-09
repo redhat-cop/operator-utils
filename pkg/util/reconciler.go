@@ -44,10 +44,11 @@ import (
 
 // ReconcilerBase is a base struct from which all reconcilers can be derived from. By doing so your reconcilers will also inherit a set of utility functions
 // To inherit from reconciler just build your finalizer this way:
-// type MyReconciler struct {
-//   util.ReconcilerBase
-//   ... other optional fields ...
-// }
+//
+//	type MyReconciler struct {
+//	  util.ReconcilerBase
+//	  ... other optional fields ...
+//	}
 type ReconcilerBase struct {
 	apireader  client.Reader
 	client     client.Client
@@ -71,12 +72,12 @@ func NewFromManager(mgr manager.Manager, recorder record.EventRecorder) Reconcil
 	return NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), recorder, mgr.GetAPIReader())
 }
 
-//IsValid determines if a CR instance is valid. this implementation returns always true, should be overridden
+// IsValid determines if a CR instance is valid. this implementation returns always true, should be overridden
 func (r *ReconcilerBase) IsValid(obj metav1.Object) (bool, error) {
 	return true, nil
 }
 
-//IsInitialized determines if a CR instance is initialized. this implementation returns always true, should be overridden
+// IsInitialized determines if a CR instance is initialized. this implementation returns always true, should be overridden
 func (r *ReconcilerBase) IsInitialized(obj metav1.Object) bool {
 	return true
 }
@@ -91,7 +92,7 @@ func (r *ReconcilerBase) GetClient() client.Client {
 	return r.client
 }
 
-//GetRestConfig returns the undelying rest config
+// GetRestConfig returns the undelying rest config
 func (r *ReconcilerBase) GetRestConfig() *rest.Config {
 	return r.restConfig
 }
@@ -309,7 +310,7 @@ func (r *ReconcilerBase) ManageOutcomeWithRequeue(context context.Context, obj c
 	return r.ManageSuccessWithRequeue(context, obj, requeueAfter)
 }
 
-//ManageErrorWithRequeue will take care of the following:
+// ManageErrorWithRequeue will take care of the following:
 // 1. generate a warning event attached to the passed CR
 // 2. set the status of the passed CR to a error condition if the object implements the apis.ConditionsStatusAware interface
 // 3. return a reconcile status with with the passed requeueAfter and error
@@ -337,7 +338,7 @@ func (r *ReconcilerBase) ManageErrorWithRequeue(context context.Context, obj cli
 	return reconcile.Result{RequeueAfter: requeueAfter}, issue
 }
 
-//ManageError will take care of the following:
+// ManageError will take care of the following:
 // 1. generate a warning event attached to the passed CR
 // 2. set the status of the passed CR to a error condition if the object implements the apis.ConditionsStatusAware interface
 // 3. return a reconcile status with the passed error

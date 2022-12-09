@@ -118,13 +118,13 @@ func getTemplate(resource *utilsapi.LockedResourceTemplate, config *rest.Config,
 	return tmpl, nil
 }
 
-//DefaultExcludedPaths represents paths that are exlcuded by default in all resources
+// DefaultExcludedPaths represents paths that are exlcuded by default in all resources
 var DefaultExcludedPaths = []string{".metadata", ".status", ".spec.replicas"}
 
-//DefaultExcludedPathsSet represents paths that are exlcuded by default in all resources
+// DefaultExcludedPathsSet represents paths that are exlcuded by default in all resources
 var DefaultExcludedPathsSet = strset.New(DefaultExcludedPaths...)
 
-//GetResources returs an arrays of apis.Resources from an arya of LockedResources, useful for mass operations on the LockedResources
+// GetResources returs an arrays of apis.Resources from an arya of LockedResources, useful for mass operations on the LockedResources
 func GetResources(lockedResources []LockedResource) []client.Object {
 	resources := []client.Object{}
 	for _, lockedResource := range lockedResources {

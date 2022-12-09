@@ -35,7 +35,7 @@ type EnforcingReconciler struct {
 	returnOnlyFailingStatuses   bool
 }
 
-//NewEnforcingReconciler creates a new EnforcingReconciler
+// NewEnforcingReconciler creates a new EnforcingReconciler
 // clusterWatcher determines whether the created watchers should be at the cluster level or namespace level.
 // this affects the kind of permissions needed to run the controller
 // also creating multiple namespace level permissions can create performance issue as one watch per object type per namespace is opened to the API server, if in doubt pass true here.
@@ -55,7 +55,7 @@ func NewFromManager(mgr manager.Manager, recorderName string, clusterWatchers bo
 	return NewEnforcingReconciler(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetAPIReader(), mgr.GetEventRecorderFor(recorderName), clusterWatchers, returnOnlyFailingStatuses)
 }
 
-//GetStatusChangeChannel returns the channel through which status change events can be received
+// GetStatusChangeChannel returns the channel through which status change events can be received
 func (er *EnforcingReconciler) GetStatusChangeChannel() <-chan event.GenericEvent {
 	return er.statusChange
 }
@@ -83,19 +83,20 @@ func (er *EnforcingReconciler) getLockedResourceManager(instance client.Object) 
 }
 
 // UpdateLockedResources will do the following:
-// 1. initialize or retrieve the LockedResourceManager related to the passed parent resource
-// 2. compare the currently enforced resources with the one passed as parameters and then
-//    a. return immediately if they are the same
-//    b. restart the LockedResourceManager if they don't match
+//  1. initialize or retrieve the LockedResourceManager related to the passed parent resource
+//  2. compare the currently enforced resources with the one passed as parameters and then
+//     a. return immediately if they are the same
+//     b. restart the LockedResourceManager if they don't match
 func (er *EnforcingReconciler) UpdateLockedResources(context context.Context, instance client.Object, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch) error {
 	return er.UpdateLockedResourcesWithRestConfig(context, instance, lockedResources, lockedPatches, er.GetRestConfig())
 }
 
 // UpdateLockedResourcesWithRestConfig will do the following:
-// 1. initialize or retrieve the LockedResourceManager related to the passed parent resource
-// 2. compare the currently enforced resources with the one passed as parameters and then
-//    a. return immediately if they are the same
-//    b. restart the LockedResourceManager if they don't match
+//  1. initialize or retrieve the LockedResourceManager related to the passed parent resource
+//  2. compare the currently enforced resources with the one passed as parameters and then
+//     a. return immediately if they are the same
+//     b. restart the LockedResourceManager if they don't match
+//
 // this variant allows passing a rest config
 func (er *EnforcingReconciler) UpdateLockedResourcesWithRestConfig(context context.Context, instance client.Object, lockedResources []lockedresource.LockedResource, lockedPatches []lockedpatch.LockedPatch, config *rest.Config) error {
 	lockedResourceManager, err := er.getLockedResourceManager(instance)
@@ -141,7 +142,7 @@ func getToBeDeletdResources(neededResources []lockedresource.LockedResource, mod
 	return toBeDeleted
 }
 
-//ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
+// ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
 func (er *EnforcingReconciler) ManageError(context context.Context, instance client.Object, issue error) (reconcile.Result, error) {
 	er.GetRecorder().Event(instance, "Warning", "ProcessingError", issue.Error())
 	if enforcingReconcileStatusAware, updateStatus := (instance).(v1alpha1.EnforcingReconcileStatusAware); updateStatus {

@@ -122,7 +122,7 @@ func ValidateUnstructured(context context.Context, obj *unstructured.Unstructure
 	return nil
 }
 
-//IsJSONArray checks to see if a byte array containing JSON is an array of data
+// IsJSONArray checks to see if a byte array containing JSON is an array of data
 func IsJSONArray(data []byte) bool {
 	firstLine := bytes.TrimLeft(data, " \t\r\n")
 	return firstLine[0] == '['

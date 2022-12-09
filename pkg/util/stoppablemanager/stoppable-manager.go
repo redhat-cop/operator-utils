@@ -11,14 +11,14 @@ import (
 
 var log = logf.Log.WithName("stoppable_manager")
 
-//StoppableManager A StoppableManaager allows you to easily create controller-runtim.Managers that can be started and stopped.
+// StoppableManager A StoppableManaager allows you to easily create controller-runtim.Managers that can be started and stopped.
 type StoppableManager struct {
 	started bool
 	manager.Manager
 	cancelFunction context.CancelFunc
 }
 
-//Stop stops the manager
+// Stop stops the manager
 func (sm *StoppableManager) Stop() {
 	if !sm.started {
 		log.Error(errors.New("invalid argument"), "stop called on a non started channel", "started", sm.started)
@@ -29,7 +29,7 @@ func (sm *StoppableManager) Stop() {
 	sm.started = false
 }
 
-//Start starts the manager. Restarting a starated manager is a noop that will be logged.
+// Start starts the manager. Restarting a starated manager is a noop that will be logged.
 func (sm *StoppableManager) Start(parentCtx context.Context) {
 	if sm.started {
 		log.Error(errors.New("invalid argument"), "start called on a started channel")
@@ -46,7 +46,7 @@ func (sm *StoppableManager) Start(parentCtx context.Context) {
 	sm.started = true
 }
 
-//NewStoppableManager creates a new stoppable manager
+// NewStoppableManager creates a new stoppable manager
 func NewStoppableManager(config *rest.Config, options manager.Options) (StoppableManager, error) {
 	manager, err := manager.New(config, options)
 	if err != nil {
@@ -57,7 +57,7 @@ func NewStoppableManager(config *rest.Config, options manager.Options) (Stoppabl
 	}, nil
 }
 
-//IsStarted returns wether this stoppable manager is running.
+// IsStarted returns wether this stoppable manager is running.
 func (sm *StoppableManager) IsStarted() bool {
 	return sm.started
 }

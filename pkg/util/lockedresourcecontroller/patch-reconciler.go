@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-//LockedPatchReconciler is a reconciler that can enforce a LockedPatch
+// LockedPatchReconciler is a reconciler that can enforce a LockedPatch
 type LockedPatchReconciler struct {
 	util.ReconcilerBase
 	patch        lockedpatch.LockedPatch
@@ -46,7 +46,7 @@ type LockedPatchReconciler struct {
 	log          logr.Logger
 }
 
-//NewLockedPatchReconciler returns a new reconcile.Reconciler
+// NewLockedPatchReconciler returns a new reconcile.Reconciler
 func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch, statusChange chan<- event.GenericEvent, parentObject client.Object) (*LockedPatchReconciler, error) {
 
 	// TODO create the object is it does not exists
@@ -436,7 +436,7 @@ func compareSourceObjects(ctx context.Context, sourceObjectReference *utilsapi.S
 	}
 }
 
-//Reconcile method
+// Reconcile method
 func (lpr *LockedPatchReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	//gather all needed the objects
 	lpr.log.V(1).Info("reconcile", "for", request)
@@ -490,7 +490,7 @@ func (lpr *LockedPatchReconciler) Reconcile(ctx context.Context, request reconci
 	return lpr.manageSuccess(targetObj)
 }
 
-//GetKey return the patch no so unique identifier
+// GetKey return the patch no so unique identifier
 func (lpr *LockedPatchReconciler) GetKey() string {
 	return lpr.patch.GetKey()
 }
@@ -570,7 +570,7 @@ func (lpr *LockedPatchReconciler) setStatus(key string, conditions []metav1.Cond
 	}
 }
 
-//GetStatus returns the status for this reconciler
+// GetStatus returns the status for this reconciler
 func (lpr *LockedPatchReconciler) GetStatus() map[string][]metav1.Condition {
 	lpr.statusLock.Lock()
 	defer lpr.statusLock.Unlock()

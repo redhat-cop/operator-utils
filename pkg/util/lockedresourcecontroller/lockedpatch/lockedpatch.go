@@ -14,7 +14,7 @@ import (
 
 var log = ctrl.Log.WithName("lockedpatch")
 
-//LockedPatch represents a patch that needs to be enforced.
+// LockedPatch represents a patch that needs to be enforced.
 type LockedPatch struct {
 	Name             string                           `json:"name,omitempty"`
 	SourceObjectRefs []utilsapi.SourceObjectReference `json:"sourceObjectRefs,omitempty"`
@@ -24,12 +24,12 @@ type LockedPatch struct {
 	Template         template.Template                `json:"-"`
 }
 
-//GetKey returns a not so unique key for a patch
+// GetKey returns a not so unique key for a patch
 func (lp *LockedPatch) GetKey() string {
 	return lp.Name
 }
 
-//GetLockedPatchMap returns a map and a slice of LockedPatch, useful for set based operations. Needed for internal implementation.
+// GetLockedPatchMap returns a map and a slice of LockedPatch, useful for set based operations. Needed for internal implementation.
 func GetLockedPatchMap(lockedPatches []LockedPatch) (map[string]LockedPatch, []string) {
 	lockedPatchMap := map[string]LockedPatch{}
 	lockedPatcheIDs := []string{}
@@ -48,7 +48,7 @@ func GetLockedPatchesFromLockedPatcheSet(lockedPatchSet *strset.Set, lockedPatch
 	return lockedPatches
 }
 
-//GetLockedPatches returns a slice of LockedPatches from a slice of apis.Patches
+// GetLockedPatches returns a slice of LockedPatches from a slice of apis.Patches
 func GetLockedPatches(patches map[string]utilsapi.PatchSpec, config *rest.Config, logger logr.Logger) ([]LockedPatch, error) {
 	lockedPatches := []LockedPatch{}
 	for key, patch := range patches {
