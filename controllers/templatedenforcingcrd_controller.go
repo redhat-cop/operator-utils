@@ -137,6 +137,6 @@ func (r *TemplatedEnforcingCRDReconciler) manageCleanUpLogic(instance *v1alpha1.
 func (r *TemplatedEnforcingCRDReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorutilsv1alpha1.TemplatedEnforcingCRD{}).
-		Watches(&source.Channel{Source: r.GetStatusChangeChannel()}, &handler.EnqueueRequestForObject{}).
+		WatchesRawSource(&source.Channel{Source: r.GetStatusChangeChannel()}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
