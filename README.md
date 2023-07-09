@@ -21,7 +21,7 @@ This library covers three main areas:
 ## Utility Methods
 
 Prior to version v1.3.x the general philosophy of this library was that new operator would inherit from `ReconcilerBase` and in doing so they would have access to a bunch of utility methods.
-With release v1.3.0 a new approach is available. Utility methods are callable by any operator having to inherit. This makes it easier to use this library and does not conflict with autogenerate code from `kube-builder` and `operator-sdk`.
+With release v1.3.0 a new approach is available. Utility methods are callable by any operator without having to inherit. This makes it easier to use this library and does not conflict with autogenerate code from `kube-builder` and `operator-sdk`.
 Most of the Utility methods receive a context.Context parameter. Normally this context must be initialized with a `logr.Logger` and a `rest.Config`. Some utility methods may require more, see each individual documentation.
 
 Utility methods are currently organized in the following folders:
