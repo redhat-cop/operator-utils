@@ -87,7 +87,7 @@ func NewLockedObjectReconciler(mgr manager.Manager, object unstructured.Unstruct
 
 	mgr.GetScheme().AddKnownTypes(groupVersion, &object)
 
-	err = controller.Watch(&source.Kind{Type: &object}, &handler.EnqueueRequestForObject{}, &resourceModifiedPredicate{
+	err = controller.Watch(source.Kind(mgr.GetCache(), &object), &handler.EnqueueRequestForObject{}, &resourceModifiedPredicate{
 		name:      object.GetName(),
 		namespace: object.GetNamespace(),
 		lrr:       reconciler,

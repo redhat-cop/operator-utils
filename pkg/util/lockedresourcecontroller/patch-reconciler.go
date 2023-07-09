@@ -79,7 +79,7 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 	obj := targetObjectRefToRuntimeType(&patch.TargetObjectRef)
 	mgr.GetScheme().AddKnownTypes(schema.FromAPIVersionAndKind(patch.TargetObjectRef.APIVersion, patch.TargetObjectRef.Kind).GroupVersion(), obj)
 
-	err = controller.Watch(&source.Kind{Type: obj}, &handler.EnqueueRequestForObject{}, &targetReferenceModifiedPredicate{
+	err = controller.Watch(source.Kind(mgr.GetCache(), obj), &handler.EnqueueRequestForObject{}, &targetReferenceModifiedPredicate{
 		TargetObjectReference: patch.TargetObjectRef,
 		log:                   reconciler.log.WithName("target-watcher"),
 		restConfig:            mgr.GetConfig(),
@@ -94,7 +94,7 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 	for _, sourceRef := range patch.SourceObjectRefs {
 		obj := sourceObjectRefToRuntimeType(&sourceRef)
 		mgr.GetScheme().AddKnownTypes(schema.FromAPIVersionAndKind(sourceRef.APIVersion, sourceRef.Kind).GroupVersion(), obj)
-		err = controller.Watch(&source.Kind{Type: obj}, &enqueueRequestForPatch{
+		err = controller.Watch(source.Kind(mgr.GetCache(), obj), &enqueueRequestForPatch{
 			source:          &sourceRef,
 			target:          &patch.TargetObjectRef,
 			discoveryClient: discoveryClient,
@@ -136,13 +136,12 @@ type enqueueRequestForPatch struct {
 	log             logr.Logger
 }
 
-func (e *enqueueRequestForPatch) Create(evt event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForPatch) Create(ctx context.Context, evt event.CreateEvent, q workqueue.RateLimitingInterface) {
 	//to see if this event is relevant and we have to do the following:
 	// 1. see if the target is single or multiple
 	// 2. if single just see if it matches, the pass the event.
 	// 3. if multiple see which macth and then pass the event
 	e.log.V(1).Info("enqueue create", "for", evt.Object)
-	ctx := context.TODO()
 	ctx = context.WithValue(ctx, "restConfig", e.restConfig)
 	ctx = log.IntoContext(ctx, e.log)
 	multiple, _, err := e.target.IsSelectingMultipleInstances(ctx)
@@ -210,14 +209,13 @@ func (e *enqueueRequestForPatch) Create(evt event.CreateEvent, q workqueue.RateL
 }
 
 // Update implements EventHandler
-func (e *enqueueRequestForPatch) Update(evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForPatch) Update(ctx context.Context, evt event.UpdateEvent, q workqueue.RateLimitingInterface) {
 	//to see if this event is relevant and we have to do the following:
 	// 1. see if the target is single or multiple
 	// 2. if single just see if it matches, the pass the event.
 	// 3. if multiple see which macth and then pass the event
 	// TODO  this could be optmized to see if the change affected the needed jsonpath
 	e.log.V(1).Info("enqueue update", "for", evt.ObjectNew)
-	ctx := context.TODO()
 	ctx = context.WithValue(ctx, "discoveryClient", e.discoveryClient)
 	ctx = context.WithValue(ctx, "restConfig", e.restConfig)
 	ctx = log.IntoContext(ctx, e.log)
@@ -274,11 +272,11 @@ func (e *enqueueRequestForPatch) Update(evt event.UpdateEvent, q workqueue.RateL
 }
 
 // Delete implements EventHandler
-func (e *enqueueRequestForPatch) Delete(evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForPatch) Delete(ctx context.Context, evt event.DeleteEvent, q workqueue.RateLimitingInterface) {
 }
 
 // Generic implements EventHandler
-func (e *enqueueRequestForPatch) Generic(evt event.GenericEvent, q workqueue.RateLimitingInterface) {
+func (e *enqueueRequestForPatch) Generic(ctx context.Context, evt event.GenericEvent, q workqueue.RateLimitingInterface) {
 }
 
 type sourceReferenceModifiedPredicate struct {

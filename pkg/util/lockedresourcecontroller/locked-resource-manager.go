@@ -20,7 +20,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
 	"k8s.io/kubectl/pkg/util/openapi"
-	"k8s.io/kubectl/pkg/util/openapi/validation"
+	"k8s.io/kubectl/pkg/validation"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -338,7 +338,7 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 			result = multierror.Append(result, errors.New("resource type:"+lockedResource.Unstructured.GroupVersionKind().String()+"not defined"))
 			continue
 		}
-		err = templates.ValidateUnstructured(ctx, &lockedResource.Unstructured, schemaValidation)
+		err = templates.ValidateUnstructured(ctx, &lockedResource.Unstructured, schemaValidation.(*validation.NullSchema))
 		if err != nil {
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			result = multierror.Append(result, err)

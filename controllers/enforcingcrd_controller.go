@@ -136,6 +136,6 @@ func (r *EnforcingCRDReconciler) IsInitialized(instance *v1alpha1.EnforcingCRD) 
 func (r *EnforcingCRDReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorutilsv1alpha1.EnforcingCRD{}).
-		Watches(&source.Channel{Source: r.GetStatusChangeChannel()}, &handler.EnqueueRequestForObject{}).
+		WatchesRawSource(&source.Channel{Source: r.GetStatusChangeChannel()}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

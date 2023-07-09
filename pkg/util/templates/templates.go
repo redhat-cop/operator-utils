@@ -23,7 +23,7 @@ import (
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/kubectl/pkg/util/openapi/validation"
+	"k8s.io/kubectl/pkg/validation"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
@@ -107,7 +107,7 @@ func ProcessTemplateArray(context context.Context, data interface{}, template *t
 // ValidateUnstructured validates the content of an unstructured against an openapi schema.
 // the schema is intended to be retrieved from a running instance of kubernetes, but other usages are possible.
 // requires a context with log
-func ValidateUnstructured(context context.Context, obj *unstructured.Unstructured, validationSchema *validation.SchemaValidation) error {
+func ValidateUnstructured(context context.Context, obj *unstructured.Unstructured, validationSchema *validation.NullSchema) error {
 	log := log.FromContext(context)
 	bb, err := obj.MarshalJSON()
 	if err != nil {
