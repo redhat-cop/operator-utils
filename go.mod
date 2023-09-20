@@ -1,6 +1,6 @@
 module github.com/redhat-cop/operator-utils
 
-go 1.19
+go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.2.1

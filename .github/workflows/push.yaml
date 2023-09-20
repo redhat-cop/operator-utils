@@ -13,7 +13,7 @@ jobs:
     name: setup
     env:
       BUILD_PLATFORMS: "linux/amd64,linux/arm64,linux/ppc64le,linux/s390x"
-      GO_VERSION: "~1.18"
+      GO_VERSION: "~1.21"
     steps:
       - name: Setting Workflow Variables
         id: set-variables
