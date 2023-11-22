@@ -107,7 +107,7 @@ func ProcessTemplateArray(context context.Context, data interface{}, template *t
 // ValidateUnstructured validates the content of an unstructured against an openapi schema.
 // the schema is intended to be retrieved from a running instance of kubernetes, but other usages are possible.
 // requires a context with log
-func ValidateUnstructured(context context.Context, obj *unstructured.Unstructured, validationSchema *validation.NullSchema) error {
+func ValidateUnstructured(context context.Context, obj *unstructured.Unstructured, validationSchema validation.Schema) error {
 	log := log.FromContext(context)
 	bb, err := obj.MarshalJSON()
 	if err != nil {
