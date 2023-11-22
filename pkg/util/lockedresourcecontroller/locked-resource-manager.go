@@ -338,7 +338,7 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 			result = multierror.Append(result, errors.New("resource type:"+lockedResource.Unstructured.GroupVersionKind().String()+"not defined"))
 			continue
 		}
-		err = templates.ValidateUnstructured(ctx, &lockedResource.Unstructured, schemaValidation.(*validation.NullSchema))
+		err = templates.ValidateUnstructured(ctx, &lockedResource.Unstructured, schemaValidation)
 		if err != nil {
 			lrm.log.Error(err, "unable to validate", "unstructured", lockedResource.Unstructured)
 			result = multierror.Append(result, err)
