@@ -79,11 +79,11 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 	obj := targetObjectRefToRuntimeType(&patch.TargetObjectRef)
 	mgr.GetScheme().AddKnownTypes(schema.FromAPIVersionAndKind(patch.TargetObjectRef.APIVersion, patch.TargetObjectRef.Kind).GroupVersion(), obj)
 
-	err = controller.Watch(source.Kind(mgr.GetCache(), obj), &handler.EnqueueRequestForObject{}, &targetReferenceModifiedPredicate{
+	err = controller.Watch(source.Kind(mgr.GetCache(), client.Object(obj), &handler.EnqueueRequestForObject{}, &targetReferenceModifiedPredicate{
 		TargetObjectReference: patch.TargetObjectRef,
 		log:                   reconciler.log.WithName("target-watcher"),
 		restConfig:            mgr.GetConfig(),
-	})
+	}))
 	if err != nil {
 		return &LockedPatchReconciler{}, err
 	}
@@ -94,7 +94,7 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 	for _, sourceRef := range patch.SourceObjectRefs {
 		obj := sourceObjectRefToRuntimeType(&sourceRef)
 		mgr.GetScheme().AddKnownTypes(schema.FromAPIVersionAndKind(sourceRef.APIVersion, sourceRef.Kind).GroupVersion(), obj)
-		err = controller.Watch(source.Kind(mgr.GetCache(), obj), &enqueueRequestForPatch{
+		err = controller.Watch(source.Kind(mgr.GetCache(), client.Object(obj), &enqueueRequestForPatch{
 			source:          &sourceRef,
 			target:          &patch.TargetObjectRef,
 			discoveryClient: discoveryClient,
@@ -105,7 +105,7 @@ func NewLockedPatchReconciler(mgr manager.Manager, patch lockedpatch.LockedPatch
 			source:     &sourceRef,
 			target:     &patch.TargetObjectRef,
 			restConfig: mgr.GetConfig(),
-		})
+		}))
 		if err != nil {
 			return &LockedPatchReconciler{}, err
 		}

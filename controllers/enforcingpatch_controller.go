@@ -100,6 +100,6 @@ func (r *EnforcingPatchReconciler) IsInitialized(instance *v1alpha1.EnforcingPat
 func (r *EnforcingPatchReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorutilsv1alpha1.EnforcingPatch{}).
-		WatchesRawSource(&source.Channel{Source: r.GetStatusChangeChannel()}, &handler.EnqueueRequestForObject{}).
+		WatchesRawSource(source.Channel(r.GetStatusChangeChannel(), &handler.EnqueueRequestForObject{})).
 		Complete(r)
 }

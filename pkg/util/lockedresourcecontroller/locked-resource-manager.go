@@ -13,6 +13,7 @@ import (
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedpatch"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource"
 	"github.com/redhat-cop/operator-utils/pkg/util/lockedresourcecontroller/lockedresource/lockedresourceset"
+	utilsopenapi "github.com/redhat-cop/operator-utils/pkg/util/openapi"
 	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
 	"github.com/redhat-cop/operator-utils/pkg/util/templates"
 	"github.com/scylladb/go-set/strset"
@@ -124,15 +125,21 @@ func (lrm *LockedResourceManager) Start(ctx context.Context, config *rest.Config
 		return nil
 	}
 
-	//diabling metrics
+	// disabling metrics
 	options := lrm.options
-	options.MetricsBindAddress = "0"
+	options.Metrics.BindAddress = "0" // disable metrics
 	options.LeaderElection = false
 
 	if !lrm.clusterWatchers {
 		namespaces := lrm.scanNamespaces()
+		defaultCacheNamespaces := map[string]cache.Config{}
+		for _, namespace := range namespaces {
+			defaultCacheNamespaces[namespace] = cache.Config{}
+		}
 		lrm.log.V(1).Info("starting multicache with the following ", "namespaces", namespaces)
-		options.NewCache = cache.MultiNamespacedCacheBuilder(namespaces)
+		options.Cache = cache.Options{
+			DefaultNamespaces: defaultCacheNamespaces,
+		}
 	}
 
 	stoppableManager, err := stoppablemanager.NewStoppableManager(config, options)
@@ -325,7 +332,7 @@ func (lrm *LockedResourceManager) validateLockedResources(lockedResources []lock
 		lrm.log.Error(err, "unable to get resources from openapi doc")
 		return err
 	}
-	schemaValidation := validation.NewSchemaValidation(resources)
+	schemaValidation := validation.NewSchemaValidation(utilsopenapi.OpenAPIResourcesGetter{Resources: resources})
 	result := &multierror.Error{}
 	for _, lockedResource := range lockedResources {
 		defined, err := discoveryclient.IsUnstructuredDefined(ctx, &lockedResource.Unstructured)
