@@ -140,18 +140,10 @@ func (lor *LockedResourceReconciler) Reconcile(ctx context.Context, request reco
 	}
 	if !equal {
 		lor.log.V(1).Info("determined that resources are NOT equal", "differences", lor.logDiff(instance))
-		patch, err := lockedresource.FilterOutPaths(&lor.Resource, lor.ExcludePaths)
+		// Create patch that explicitly sets missing fields to null so they are removed
+		patchBytes, err := lor.createPatchWithNullFields(&lor.Resource, instance)
 		if err != nil {
-			lor.log.Error(err, "unable to filter out ", "excluded paths", lor.ExcludePaths, "from object", lor.Resource)
-			return lor.manageError(instance, err)
-		}
-		if err != nil {
-			lor.log.Error(err, "unable to marshall ", "object", patch)
-			return lor.manageError(instance, err)
-		}
-		patchBytes, err := json.Marshal(patch)
-		if err != nil {
-			lor.log.Error(err, "unable to marshall ", "object", patch)
+			lor.log.Error(err, "unable to create patch", "expected", &lor.Resource, "actual", instance)
 			return lor.manageError(instance, err)
 		}
 		_, err = client.Patch(ctx, instance.GetName(), types.MergePatchType, patchBytes, metav1.PatchOptions{})
@@ -175,6 +167,45 @@ func (lor *LockedResourceReconciler) isEqual(instance *unstructured.Unstructured
 		return false, err
 	}
 	return reflect.DeepEqual(left, right), nil
+}
+
+// createPatchWithNullFields creates a merge patch that includes null values for fields
+// that exist in actual but are missing in expected, ensuring they are removed.
+// This fixes the issue where fields with value "0" are not removed when conditionals change.
+func (lor *LockedResourceReconciler) createPatchWithNullFields(expected, actual *unstructured.Unstructured) ([]byte, error) {
+	patch := expected.DeepCopy()
+	
+	// Add null values for fields that exist in actual but not in expected
+	addNullFieldsForMissing(patch.Object, actual.Object)
+	
+	// Filter out excluded paths
+	filteredPatch, err := lockedresource.FilterOutPaths(patch, lor.ExcludePaths)
+	if err != nil {
+		return nil, err
+	}
+	
+	return json.Marshal(filteredPatch)
+}
+
+// addNullFieldsForMissing recursively adds null values to expected map for fields
+// that exist in actual but are missing in expected.
+func addNullFieldsForMissing(expected, actual map[string]interface{}) {
+	for key, actualValue := range actual {
+		// Skip metadata and status as they're typically excluded
+		if key == "metadata" || key == "status" {
+			continue
+		}
+		
+		if _, exists := expected[key]; !exists {
+			// Field missing in expected - set to null to remove it
+			expected[key] = nil
+		} else if actualMap, ok := actualValue.(map[string]interface{}); ok {
+			if expectedMap, ok := expected[key].(map[string]interface{}); ok {
+				// Both are maps - recurse
+				addNullFieldsForMissing(expectedMap, actualMap)
+			}
+		}
+	}
 }
 
 func (lor *LockedResourceReconciler) logDiff(instance *unstructured.Unstructured) string {
